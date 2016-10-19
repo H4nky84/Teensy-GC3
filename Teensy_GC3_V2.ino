@@ -262,6 +262,7 @@ void setup() {
   //INTCONbits.GIEH = 1;
   //INTCONbits.GIEL = 1;
   interrupts();
+  digitalWrite(2, 0);
 
 }
 
