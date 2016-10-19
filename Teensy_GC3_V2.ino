@@ -117,7 +117,7 @@ const unsigned char params[7] = {MANU_MERG, MINOR_VER, MODULE_ID, EVT_NUM, EVper
 
 void setup() {
   pinMode(SWAP_OP, INPUT);
-  pinMode(PWRBUTTON, INPUT);
+  pinMode(PWRBUTTON, INPUT_PULLUP);
   pinMode(LEDCANACT, OUTPUT);
   pinMode(DCC_EN, OUTPUT);
   pinMode(DCC_OUT_POS, OUTPUT);
