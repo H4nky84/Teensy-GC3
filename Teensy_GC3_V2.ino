@@ -97,7 +97,7 @@ unsigned char Latcount;
 unsigned char BeepCount;
 unsigned char PowerButtonDelay;
 unsigned char can_transmit_timeout;
-unsigned short NN_temp;
+uint16_t NN_temp;
 unsigned short LEDCanActTimer;
 unsigned char PowerTrigger;
 unsigned char PowerON;
