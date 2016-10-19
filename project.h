@@ -1,20 +1,14 @@
 #ifndef __PROJECT_H
 #define __PROJECT_H
 
-//Define type of module
-#define CANCMD
-
-// SPROG headers
+// headers for this project
 #include "cancmd.h"
 #include "commands.h"
 #include "power_cmds.h"
 #include "program_cmds.h"
-
-// headers for this project
 #include "isr_high.h"
 #include "mode_cmds.h"
 #include "packet_gen.h"
-//other includes
 #include "cbus_common.h"
 #include "can_send.h"
 #include "cbusdefs7e.h"
