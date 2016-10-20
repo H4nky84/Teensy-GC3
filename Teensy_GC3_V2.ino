@@ -122,7 +122,7 @@ volatile unsigned char ovld_delay;
 //extern volatile unsigned char dcc_buff_m[7];
 volatile uint16_t imax;    // Booster mode current limit
 unsigned char ad_state;             // A/D state machine
-uint16_t iccq;               // Quiescent decoder current
+volatile uint16_t iccq;               // Quiescent decoder current
 volatile unsigned char tmr0_reload;
 unsigned char Latcount;
 unsigned char BeepCount;
@@ -145,8 +145,6 @@ volatile unsigned char dcc_buff_s[7];
 volatile unsigned char dcc_buff_m[7];
 
 // Module parameters at fixed place in ROM, also used by bootloader
-
-
 const unsigned char params[7] = {MANU_MERG, MINOR_VER, MODULE_ID, EVT_NUM, EVperEVT, NV_NUM, MAJOR_VER};
 
 void setup() {
