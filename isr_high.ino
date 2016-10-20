@@ -118,15 +118,10 @@ void isr_high(void) {
         // On-board booster is service mode output
         if (op_flags.op_pwr_s) {
 			digitalWriteFast(DCC_EN, 1);
-            if (op_flags.op_bit_s) {
-                digitalWriteFast(DCC_NEG, 0);
-                digitalWriteFast(DCC_POS, 1);
-            } else {
-                digitalWriteFast(DCC_POS, 0);
-                digitalWriteFast(DCC_NEG, 1);
-            }
+          digitalWriteFast(DCC_NEG, !op_flags.op_bit_s);
+          digitalWriteFast(DCC_POS, op_flags.op_bit_s);
         } else {
-			digitalWriteFast(DCC_EN, 0);
+			      digitalWriteFast(DCC_EN, 0);
             digitalWriteFast(DCC_POS, 0);
             digitalWriteFast(DCC_NEG, 0);
         }
@@ -135,13 +130,8 @@ void isr_high(void) {
         // On board booster is main track output
         if (op_flags.op_pwr_m) {
 			      digitalWriteFast(DCC_EN, 1);
-            if (op_flags.op_bit_m) {
-                digitalWriteFast(DCC_NEG, 0);
-                digitalWriteFast(DCC_POS, 1);
-            } else {
-                digitalWriteFast(DCC_POS, 0);
-                digitalWriteFast(DCC_NEG, 1);
-            }
+            digitalWriteFast(DCC_NEG, !op_flags.op_bit_m);
+            digitalWriteFast(DCC_POS, op_flags.op_bit_m);
         } else {
 			      digitalWriteFast(DCC_EN, 0);
             digitalWriteFast(DCC_POS, 0);
@@ -151,9 +141,14 @@ void isr_high(void) {
 
     // Booster output.
     if (op_flags.op_pwr_m) {
+      if(railCom_active){
+        digitalWriteFast(DCC_OUT_POS, 1);
+        digitalWriteFast(DCC_OUT_NEG, 1);
+      } else{
         digitalWriteFast(DCC_OUT_POS, op_flags.op_bit_m);
         digitalWriteFast(DCC_OUT_NEG, !op_flags.op_bit_m);
         digitalWriteFast(BOOSTER_OUT, 1);
+      }
     }
     else {
         digitalWriteFast(DCC_OUT_POS, 0);
@@ -162,7 +157,7 @@ void isr_high(void) {
     }
     //digitalWriteFast(START_PREAMBLE, bit_start_pre);
     if (bit_start_pre & mode_word.railcom) {
-      railCom_active = 1;
+      //railCom_active = 1;
       railcomDelay.begin(railComInit, 25); //begin dcc timer with period of 58 us
       railcomDelay.priority(16);  //Set interrupt priority for bit timing to 16 (second highest)
     }
@@ -415,7 +410,7 @@ void isr_high(void) {
             }
             if(dcc_pre_m - pre_cnt_m == 5) {
                 digitalWriteFast(START_PREAMBLE, 0); //reset preamble out pin to 0
-                railCom_active = 0;
+                //railCom_active = 0;
             }
             if (pre_cnt_m == 0) {
                 bit_flag_m = FIRST_START;

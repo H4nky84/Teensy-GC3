@@ -404,13 +404,14 @@ void loop() {
 }
 
 void railComInit(){
-  if(railCom_active){
-    railcomDelay.end(); //stop the interval timer
-    digitalWriteFast(START_PREAMBLE, 1);
-    railcomCh1Delay.begin(railComCh1Start, 47); //begin railcom channel 1 delay timer with period of 47 us
-    railcomCh1Delay.priority(0);  //Set interrupt priority for bit timing to 0 (highest)
-  }
-  
+   railcomDelay.end(); //stop the interval timer
+   digitalWriteFast(START_PREAMBLE, 1);
+   railCom_active = 1;
+   digitalWriteFast(DCC_OUT_POS, 1);
+   digitalWriteFast(DCC_OUT_NEG, 1);
+   railcomCh1Delay.begin(railComCh1Start, 47); //begin railcom channel 1 delay timer with period of 47 us
+   railcomCh1Delay.priority(0);  //Set interrupt priority for bit timing to 0 (highest)
+   
 }
 
 void railComCh1Start(){
@@ -444,10 +445,16 @@ void railComCh2Start(){
 void railComCh2Dur(){
   digitalWriteFast(START_PREAMBLE, 1);
   railcomCh2Occ.end();
+  railCom_active = 0;
   int i = 0;
   while(RAILCOM_SERIAL.available()){
     RailCom_CH2_data[i] = RAILCOM_SERIAL.read();
     i++;
   }
+  if (op_flags.op_pwr_m) {
+        digitalWriteFast(DCC_OUT_POS, op_flags.op_bit_m);
+        digitalWriteFast(DCC_OUT_NEG, !op_flags.op_bit_m);
+        digitalWriteFast(BOOSTER_OUT, 1);
+      }
 }
 
