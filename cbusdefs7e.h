@@ -2,7 +2,7 @@
 #define __OPCODES_H
 
 
-/* CBUS definitions for use with C18 compiler
+/* CBUS definitions for use with Arduino
  * These definitions taken from CBUS specifications document rev 7e
  * updated from opcodes.h originally by Andrew Crosland.
  * Pete Brownlow  6/4/11

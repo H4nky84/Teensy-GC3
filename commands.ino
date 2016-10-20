@@ -10,11 +10,7 @@
 //						 - add doError for command error response
 #include "project.h"
 
-
-
 void cmd_cv(void);
-
-
 
 //
 // parse_cmd()
@@ -129,26 +125,6 @@ void parse_cmd(void) {
             Tx1.buf[6] = MINOR_VER;
             Tx1.buf[7] = 0;
             can_tx(8);
-            break;
-
-// Don't support this since cab will have a handle for stack entry with
-// consist address in it. You cannot write to CV19 via consist address.
-// Instead, cab will select real loco address and send new consist address=0
-//        case OPC_KCON:
-//            // Remove from consist
-//            consist_remove();
-//            break;
-
-//        case OPC_BOOT:
-            // Enter bootloader mode if NN matches
-//            if ((((unsigned int)(rx_ptr.buf[1]))<<8 + rx_ptr.buf[2]) == FIXED_CAN_ID) {
-//                ee_write((unsigned char)(&bootflag), 0xFF);
-//               Reset();
-//            }
-//            break;
-
-        case OPC_BOOT:
-            // Enter bootloader mode if NN matches
             break;
             
         case OPC_RQNPN:

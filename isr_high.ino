@@ -88,10 +88,8 @@ unsigned char awd_count;
 // A/D readings are stored in RAM.
 //
 void isr_high(void) {
-    // 13 clocks to get here after interrupt
 	//ISR_PIN = 1;		// flag start of ISR
 
-    //
     // TMR0 is enabled all the time and we send a continuous preamble
     // as required for booster operation. The power may, however, be off
     // resulting in no actual DCC ooutput
@@ -423,7 +421,7 @@ void isr_high(void) {
             // Could keep track of how many preamble bits have been sent with power on
             // but for now we assume we are starting from scratch
             toggle_dcc_m();
-            if(pre_cnt_m ==dcc_pre_m) {
+            if(pre_cnt_m == dcc_pre_m) {
                 bit_start_pre = 1; //reset preamble out pin to 0
             }
             //START_PREAMBLE = 1; //Set preamble activity pin to high for connection to railcom cutout

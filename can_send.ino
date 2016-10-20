@@ -1,19 +1,9 @@
-/*
- * Microchip C18 source for common CBUS routines
- *
- * Code based on Mike Bolton's canacc8 for which due credit is given.
- *
- * Modifications and conversion to C18 Copyright (C) 2009 Andrew Crosland
- *
- *	Pete Brownlow - 26/6/11 - Add checks for transmit failure and transmit timeout (handled by ISRs) to wait for transmit buffer loops
- */
-
 #include "project.h"
 #include <FlexCAN.h>
 
 
 extern CAN_message_t Tx1;
-#ifdef TX1
+
 /*
  * Send simple 3-byte frame
  */
@@ -96,6 +86,5 @@ void sendTX1(void) {
 	//while ((TXB1CONbits.TXREQ) && (!op_flags.can_transmit_failed) && (can_transmit_timeout != 0));
 	//TXB1CONbits.TXREQ = 1;
 }
-		
-#endif	// TX1
+
 

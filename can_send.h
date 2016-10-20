@@ -7,9 +7,7 @@ extern void can_tx(unsigned char dlc_val);
 void can_bus_on(void);
 void can_debug1(unsigned char status);
 void can_debug_dcc(void);
+void sendTX1(void);
 
-#ifdef TX1
-	void sendTX1(void);
-#endif
 
 #endif

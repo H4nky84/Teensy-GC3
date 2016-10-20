@@ -7,7 +7,7 @@
 //
 
 #define LONG_PRE	22	// Increased from 20 - PNB 16/4/11 to meet NMRA spec 
-#define NORM_PRE	16
+#define NORM_PRE	16  //Increased to 16 for railcom compatibility
 
 // ISR prototype 
 extern void isr_high(void);

@@ -8,6 +8,27 @@ IntervalTimer dccBit;
 CAN_message_t Tx1, rx_ptr, TXB0;
 
 //
+// Current sensing for Teensy
+// 5V reference => 3.3/4096 = 0.81mV resolution
+// Sense resistor is 0R50
+// so 60mA is 30mV Vsense => 37 steps
+// 250mA overload is 125mV Vsense => 155 steps
+
+//
+#define I_ACK_DIFF 37  // No. steps for additional 60ma ACK pulse
+#define I_OVERLOAD 155
+#define I_DEFAULT 500
+#define I_LIMIT 3500
+
+// EEPROM addresses
+#define EE_MAGIC 0
+#define EE_MW 2
+#define EE_IMAX 3
+
+// values
+#define MAGIC 93
+
+//
 // Flags register used for DCC packet transmission
 //
 volatile union {
@@ -246,11 +267,6 @@ void setup() {
   Tx1.ext = 0;
 
   // Setup TXB0 with high priority OPC_HLT
-  //TXB0SIDH = 0b01110000 | (FIXED_CAN_ID & 0x78) >>3;
-  //TXB0SIDL = (FIXED_CAN_ID & 0x07) << 5;
-  //TXB0DLC = 1;
-  //TXB0D0 = OPC_HLT;
-
   TXB0.id = (FIXED_CAN_ID & 0x7F) | 0b1110000000;
   TXB0.rtr = 0;
   TXB0.ext = 0;
@@ -258,11 +274,11 @@ void setup() {
   TXB0.buf[0] = OPC_HLT;
   
 
-  // enable interrupts
-  //INTCONbits.GIEH = 1;
-  //INTCONbits.GIEL = 1;
-  interrupts();
+  //Turn on CAN transceiver 0
   digitalWrite(2, 0);
+  
+  // enable interrupts
+  interrupts();
 
 }
 
@@ -286,10 +302,10 @@ void loop() {
       unsigned char pwr = digitalRead(PWRBUTTON);
       pwr = !pwr; // Input is inverted.
 
-      if( pwr && !PowerTrigger && PowerButtonTimer == 0 ) {
+      if( pwr && !PowerTrigger && (PowerButtonTimer == 0) ) {
         PowerTrigger = 1;
       }
-      else if( !pwr && PowerTrigger && PowerButtonTimer == 0) {
+      else if( !pwr && PowerTrigger && (PowerButtonTimer == 0)) {
         PowerTrigger = 0;
         PowerButtonTimer = 10000;
         // Toggle Power.
