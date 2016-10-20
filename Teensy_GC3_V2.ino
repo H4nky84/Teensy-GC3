@@ -2,7 +2,9 @@
 #include <EEPROM.h>
 #include "project.h"
 
-FlexCAN CANbus(125000, 0);
+FlexCAN CANbus(125000, 0);  //Declare canbus object at 125kbit
+
+//Interval Timers to control precise timing of railcom cutout
 IntervalTimer dccBit;
 IntervalTimer railcomDelay;
 IntervalTimer railcomCh1Delay;
@@ -12,6 +14,7 @@ IntervalTimer railcomCh2Occ;
 
 #define RAILCOM_SERIAL Serial1
 
+//CAN message buffers
 CAN_message_t Tx1, rx_ptr, TXB0;
 
 //
@@ -24,8 +27,8 @@ CAN_message_t Tx1, rx_ptr, TXB0;
 //
 #define I_ACK_DIFF 37  // No. steps for additional 60ma ACK pulse
 #define I_OVERLOAD 155
-#define I_DEFAULT 500
-#define I_LIMIT 3500
+#define I_DEFAULT 1500
+#define I_LIMIT 2900
 
 // EEPROM addresses
 #define EE_MAGIC 0
