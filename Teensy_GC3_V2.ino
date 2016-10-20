@@ -418,11 +418,11 @@ void railComCh1Start(){
   digitalWriteFast(START_PREAMBLE, 0);
   railcomCh1Delay.end();
   RAILCOM_SERIAL.clear();
-  railcomCh1Occ.begin(railComCh1Dur, 100); //begin railcom channel 1 occupied timer with period of 100 us
+  railcomCh1Occ.begin(railComCh1End, 100); //begin railcom channel 1 occupied timer with period of 100 us
   railcomCh1Occ.priority(0);  //Set interrupt priority for bit timing to 16 (highest)
 }
 
-void railComCh1Dur(){
+void railComCh1End(){
   digitalWriteFast(START_PREAMBLE, 1);
   railcomCh1Occ.end();
   railcomCh2Delay.begin(railComCh2Start, 7); //begin railcom channel 2 delay timer with period of 7 us
@@ -438,11 +438,11 @@ void railComCh2Start(){
   digitalWriteFast(START_PREAMBLE, 0);
   railcomCh2Delay.end();
   RAILCOM_SERIAL.clear();
-  railcomCh2Occ.begin(railComCh2Dur, 263); //begin railcom channel 2 occupied timer with period of 263 us
+  railcomCh2Occ.begin(railComCh2End, 263); //begin railcom channel 2 occupied timer with period of 263 us
   railcomCh2Occ.priority(0);  //Set interrupt priority for bit timing to 0 (highest)
 }
 
-void railComCh2Dur(){
+void railComCh2End(){
   digitalWriteFast(START_PREAMBLE, 1);
   railcomCh2Occ.end();
   railCom_active = 0;
