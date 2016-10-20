@@ -4,6 +4,13 @@
 
 FlexCAN CANbus(125000, 0);
 IntervalTimer dccBit;
+IntervalTimer railcomDelay;
+IntervalTimer railcomCh1Delay;
+IntervalTimer railcomCh1Occ;
+IntervalTimer railcomCh2Delay;
+IntervalTimer railcomCh2Occ;
+
+#define RAILCOM_SERIAL Serial1
 
 CAN_message_t Tx1, rx_ptr, TXB0;
 
@@ -65,7 +72,7 @@ volatile union {
         unsigned :1;
         unsigned ztc_mode:1;  // ZTC compatibility mode
         unsigned direct_byte:1;
-        unsigned :1;
+        unsigned railcom:1;
     } ;
     unsigned char byte;
 } mode_word;
@@ -124,6 +131,9 @@ unsigned char PowerTrigger;
 unsigned char PowerON;
 unsigned short PowerButtonTimer;
 extern const unsigned char params[7];
+volatile boolean railCom_active;
+volatile byte RailCom_CH1_data[2];
+volatile byte RailCom_CH2_data[6];
 
 
 // dcc packet buffers for service mode programming track
@@ -153,6 +163,8 @@ void setup() {
   unsigned char i;
 
   noInterrupts();
+
+  RAILCOM_SERIAL.begin(250000);
   
   PowerButtonDelay = 0;
   PowerTrigger = 0;
@@ -248,6 +260,7 @@ void setup() {
   SCB_SHPR3 = 0x20200000; //Change systick priority to 32 (3rd highest)
   dccBit.begin(isr_high, 58); //begin dcc timer with period of 58 us
   dccBit.priority(16);  //Set interrupt priority for bit timing to 16 (second highest)
+  
 
   // Programmer state machine
   prog_state = CV_IDLE;
@@ -295,6 +308,9 @@ void loop() {
         Tx1.buf[0] = OPC_ARST;
         can_tx(1);
     }
+    power_control(OPC_RTON);
+    PowerON = 0;
+    mode_word.railcom = 1;
 
     // Loop forever
     while (1) {
@@ -386,3 +402,52 @@ void loop() {
 
 
 }
+
+void railComInit(){
+  if(railCom_active){
+    railcomDelay.end(); //stop the interval timer
+    digitalWriteFast(START_PREAMBLE, 1);
+    railcomCh1Delay.begin(railComCh1Start, 47); //begin railcom channel 1 delay timer with period of 47 us
+    railcomCh1Delay.priority(0);  //Set interrupt priority for bit timing to 0 (highest)
+  }
+  
+}
+
+void railComCh1Start(){
+  digitalWriteFast(START_PREAMBLE, 0);
+  railcomCh1Delay.end();
+  RAILCOM_SERIAL.clear();
+  railcomCh1Occ.begin(railComCh1Dur, 100); //begin railcom channel 1 occupied timer with period of 100 us
+  railcomCh1Occ.priority(0);  //Set interrupt priority for bit timing to 16 (highest)
+}
+
+void railComCh1Dur(){
+  digitalWriteFast(START_PREAMBLE, 1);
+  railcomCh1Occ.end();
+  railcomCh2Delay.begin(railComCh2Start, 7); //begin railcom channel 2 delay timer with period of 7 us
+  railcomCh2Delay.priority(0);  //Set interrupt priority for bit timing to 0 (highest)
+  int i = 0;
+  while(RAILCOM_SERIAL.available()){
+    RailCom_CH1_data[i] = RAILCOM_SERIAL.read();
+    i++;
+  }
+}
+
+void railComCh2Start(){
+  digitalWriteFast(START_PREAMBLE, 0);
+  railcomCh2Delay.end();
+  RAILCOM_SERIAL.clear();
+  railcomCh2Occ.begin(railComCh2Dur, 263); //begin railcom channel 2 occupied timer with period of 263 us
+  railcomCh2Occ.priority(0);  //Set interrupt priority for bit timing to 0 (highest)
+}
+
+void railComCh2Dur(){
+  digitalWriteFast(START_PREAMBLE, 1);
+  railcomCh2Occ.end();
+  int i = 0;
+  while(RAILCOM_SERIAL.available()){
+    RailCom_CH2_data[i] = RAILCOM_SERIAL.read();
+    i++;
+  }
+}
+

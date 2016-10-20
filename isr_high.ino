@@ -160,7 +160,12 @@ void isr_high(void) {
         digitalWriteFast(DCC_OUT_NEG, 0);
         digitalWriteFast(BOOSTER_OUT, 0);
     }
-    digitalWriteFast(START_PREAMBLE, bit_start_pre);
+    //digitalWriteFast(START_PREAMBLE, bit_start_pre);
+    if (bit_start_pre & mode_word.railcom) {
+      railCom_active = 1;
+      railcomDelay.begin(railComInit, 25); //begin dcc timer with period of 58 us
+      railcomDelay.priority(16);  //Set interrupt priority for bit timing to 16 (second highest)
+    }
 
     // Power LEDs
     if (digitalRead(SWAP_OP) == 1) {
@@ -288,9 +293,7 @@ void isr_high(void) {
             toggle_dcc_s();
             // check if ready for start bit
             pre_cnt_s--;
-            //if(pre_cnt_m < 5) {
-                //START_PREAMBLE = 0; //reset preamble out pin to 0
-            //}
+            
             if (pre_cnt_s == 0) {
                 bit_flag_s = FIRST_START;
             } else {
@@ -409,6 +412,10 @@ void isr_high(void) {
             pre_cnt_m--;
             if(bit_start_pre) {
                 bit_start_pre = 0; //reset preamble out pin to 0
+            }
+            if(dcc_pre_m - pre_cnt_m == 5) {
+                digitalWriteFast(START_PREAMBLE, 0); //reset preamble out pin to 0
+                railCom_active = 0;
             }
             if (pre_cnt_m == 0) {
                 bit_flag_m = FIRST_START;
