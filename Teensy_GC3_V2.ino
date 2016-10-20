@@ -118,8 +118,8 @@ volatile union {
 //
 //
 volatile unsigned char ovld_delay;
-extern volatile unsigned char dcc_buff_s[7];
-extern volatile unsigned char dcc_buff_m[7];
+//extern volatile unsigned char dcc_buff_s[7];
+//extern volatile unsigned char dcc_buff_m[7];
 volatile uint16_t imax;    // Booster mode current limit
 unsigned char ad_state;             // A/D state machine
 uint16_t iccq;               // Quiescent decoder current
@@ -133,7 +133,7 @@ unsigned short LEDCanActTimer;
 unsigned char PowerTrigger;
 unsigned char PowerON;
 unsigned short PowerButtonTimer;
-extern const unsigned char params[7];
+//extern const unsigned char params[7];
 volatile boolean railCom_active;
 volatile byte RailCom_CH1_data[2];
 volatile byte RailCom_CH2_data[6];
