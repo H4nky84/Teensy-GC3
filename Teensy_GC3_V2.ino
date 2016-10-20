@@ -26,9 +26,9 @@ CAN_message_t Tx1, rx_ptr, TXB0;
 
 //
 #define I_ACK_DIFF 37  // No. steps for additional 60ma ACK pulse
-#define I_OVERLOAD 155
+#define I_OVERLOAD 155  //This is the value for 250mA for the service mode
 #define I_DEFAULT 1500
-#define I_LIMIT 2900
+#define I_LIMIT 2900    //This is for 4 amps (capability of L6203
 
 // EEPROM addresses
 #define EE_MAGIC 0
