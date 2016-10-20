@@ -308,6 +308,8 @@ void loop() {
         Tx1.buf[0] = OPC_ARST;
         can_tx(1);
     }
+    
+    //Temporary code to enable power on automatically and enabling railCom cutout
     power_control(OPC_RTON);
     PowerON = 0;
     mode_word.railcom = 1;
