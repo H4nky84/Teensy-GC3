@@ -150,7 +150,7 @@ void queue_add() {
     }
 	// Find free entry or match address
     free_handle = 0;
-	i = 0;
+	  i = 0;
     err = ERR_LOCO_STACK_FULL;
 	while (i < MAX_HANDLES) {
         if ((q_queue[i].status.valid == 0) && (free_handle == 0)) {
@@ -181,6 +181,7 @@ void queue_add() {
         Tx1.buf[6] = q_queue[1].fn2;
         Tx1.buf[7] = q_queue[1].fn2a;
         can_tx(8);
+        noOfSessions ++;
 	} else {
         // Report error code
         Tx1.buf[0] = OPC_ERR;
@@ -221,7 +222,7 @@ void queue_update(void) {
     // Only update for valid slots
     if (q_queue[rx_ptr.buf[1]].status.valid == 1) {
         // Reset slot timeout 
-        q_queue[rx_ptr.buf[1]].timeout = 40;
+        //q_queue[rx_ptr.buf[1]].timeout = 80;
         if (rx_ptr.buf[0] == OPC_DSPD) {
             // Put speed/dir update in refresh queue
             speed = rx_ptr.buf[2];
@@ -384,6 +385,7 @@ void purge_session(void) {
     q_queue[rx_ptr.buf[1]].fn2 = 0;
     q_queue[rx_ptr.buf[1]].fn2a = 0;
     q_queue[rx_ptr.buf[1]].timeout = 0;
+    noOfSessions --;
 }
 
 //
@@ -392,7 +394,7 @@ void purge_session(void) {
 // bump session timeout
 //
 void keep_alive(void) {
-    q_queue[rx_ptr.buf[1]].timeout = 40;
+    q_queue[rx_ptr.buf[1]].timeout = 80;
 }
 
 //

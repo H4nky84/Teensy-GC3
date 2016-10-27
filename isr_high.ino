@@ -204,7 +204,7 @@ void isr_high(void) {
     // Slot timeout and other timers - every half second
     //
     if (--slot_timer == 0) {
-        slot_timer = 500000/58;
+        slot_timer = 8620;
         op_flags.slot_timer = 1;
 
 		  if (can_transmit_timeout != 0) {

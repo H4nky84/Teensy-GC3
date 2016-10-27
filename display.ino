@@ -31,6 +31,8 @@ boolean RecordOn = false;
 #define TRACK_STAT_H 60
 #define TRACK_STAT_R 8
 
+
+
 #define RAIL_COM_X 280
 #define RAIL_COM_Y 200
 #define RAIL_COM_W 30
@@ -41,6 +43,18 @@ boolean RecordOn = false;
 #define GREENBUTTON_Y FRAME_Y
 #define GREENBUTTON_W (FRAME_W/2)
 #define GREENBUTTON_H FRAME_H
+
+struct rectangle{
+  unsigned int X;
+  unsigned int Y;
+  unsigned int W;
+  unsigned int H;
+};
+
+rectangle TRACK_STAT = {80, 160, 140, 60};
+rectangle RAIL_COM = {280, 200, 30, 30};
+rectangle CURRENT_FRAME = {7, 50, 306, 60};
+rectangle CURRENT_BOX = {188, 60, 85, 40};
 
 
 void drawFrame()
@@ -74,14 +88,12 @@ void greenBtn()
 
 void trackOffMessage()
 {
-  tft.fillRoundRect(TRACK_STAT_X+2, TRACK_STAT_Y+2, TRACK_STAT_W, TRACK_STAT_H, TRACK_STAT_R, ILI9341_BLACK);
-  tft.fillRoundRect(TRACK_STAT_X, TRACK_STAT_Y, TRACK_STAT_W, TRACK_STAT_H, TRACK_STAT_R, ILI9341_RED);
-  //tft.fillRect(REDBUTTON_X, REDBUTTON_Y, REDBUTTON_W, REDBUTTON_H, ILI9341_BLACK);
-  tft.drawRoundRect(TRACK_STAT_X, TRACK_STAT_Y, TRACK_STAT_W, TRACK_STAT_H, TRACK_STAT_R, ILI9341_BLACK);
-  tft.setCursor(TRACK_STAT_X+6, TRACK_STAT_Y+22);
+  tft.fillRoundRect(TRACK_STAT.X+2, TRACK_STAT.Y+2, TRACK_STAT.W, TRACK_STAT.H, 8, ILI9341_BLACK);
+  tft.fillRoundRect(TRACK_STAT.X, TRACK_STAT.Y, TRACK_STAT.W, TRACK_STAT.H, 8, ILI9341_RED);
+  tft.drawRoundRect(TRACK_STAT.X, TRACK_STAT.Y, TRACK_STAT.W, TRACK_STAT.H, 8, ILI9341_BLACK);
+  tft.setCursor(TRACK_STAT.X+6, TRACK_STAT.Y+22);
   tft.setTextColor(ILI9341_WHITE);
   tft.setFont(Arial_16);
-  //tft.setTextSize(4);
   tft.println("TRACK OFF");
   trackOnDisplay_active = 0;
   trackOffDisplay_active = 1;
@@ -89,19 +101,98 @@ void trackOffMessage()
 
 void trackOnMessage()
 {
-  tft.fillRoundRect(TRACK_STAT_X+2, TRACK_STAT_Y+2, TRACK_STAT_W, TRACK_STAT_H, TRACK_STAT_R, ILI9341_BLACK);
-  tft.fillRoundRect(TRACK_STAT_X, TRACK_STAT_Y, TRACK_STAT_W, TRACK_STAT_H, TRACK_STAT_R, ILI9341_DARKGREEN);
-  //tft.fillRect(REDBUTTON_X, REDBUTTON_Y, REDBUTTON_W, REDBUTTON_H, ILI9341_BLACK);
-  tft.drawRoundRect(TRACK_STAT_X, TRACK_STAT_Y, TRACK_STAT_W, TRACK_STAT_H, TRACK_STAT_R, ILI9341_BLACK);
-  tft.setCursor(TRACK_STAT_X+10, TRACK_STAT_Y+22);
+  tft.fillRoundRect(TRACK_STAT.X+2, TRACK_STAT.Y+2, TRACK_STAT.W, TRACK_STAT.H, 8, ILI9341_BLACK);
+  tft.fillRoundRect(TRACK_STAT.X, TRACK_STAT.Y, TRACK_STAT.W, TRACK_STAT.H, 8, ILI9341_DARKGREEN);
+  tft.drawRoundRect(TRACK_STAT.X, TRACK_STAT.Y, TRACK_STAT.W, TRACK_STAT.H, 8, ILI9341_BLACK);
+  tft.setCursor(TRACK_STAT.X+10, TRACK_STAT.Y+22);
   tft.setTextColor(ILI9341_WHITE);
   tft.setFont(Arial_16);
-  //tft.setTextSize(4);
   tft.println("TRACK ON");
   trackOnDisplay_active = 1;
   trackOffDisplay_active = 0;
 }
 
+
+void initScreenCurrent(){
+  tft.fillScreen(BACKGROUND);
+  tft.fillRoundRect(CURRENT_FRAME.X, CURRENT_FRAME.Y, CURRENT_FRAME.W, CURRENT_FRAME.H, 10, ILI9341_BLACK);
+  tft.setCursor(CURRENT_FRAME.X + 8, CURRENT_FRAME.Y + 15);
+  tft.setTextColor(ILI9341_CYAN);
+  tft.setFont(Arial_28);
+  tft.print("Current = ");
+  tft.print(ch1Current);
+  tft.print(" A");
+  if(op_flags.op_pwr_m == 1)
+  {
+    trackOnMessage();
+  } else trackOffMessage();
+  railComIcon();
+  tft.setCursor(50, 5);
+  tft.setTextColor(ILI9341_BLACK);
+  tft.setFont(Arial_16);
+  tft.print("Sessions = ");
+  tft.print(noOfSessions);
+}
+
+void splashScreen(){
+  tft.fillScreen(BACKGROUND);
+  tft.writeRect(38, 10, 244, 110, (uint16_t*)merg_logo);
+  tft.setCursor(27, 150);
+  tft.setTextColor(ILI9341_BLACK);
+  tft.setFont(ArialBlack_28);
+  tft.print("Powered by:");
+  tft.writeRect(22, 200, 276, 31, (uint16_t*)pjrc_logo);
+}
+
+void updateScreenCurrent(){
+  tft.fillRect(CURRENT_BOX.X, CURRENT_BOX.Y, CURRENT_BOX.W, CURRENT_BOX.H, ILI9341_BLACK);
+  tft.setTextColor(ILI9341_CYAN);
+  tft.setFont(Arial_28);
+  tft.setCursor(CURRENT_BOX.X + 3, CURRENT_BOX.Y + 5);
+  tft.print(ch1Current);
+  tft.print(" A");
+}
+
+
+void railComIcon()
+{
+  if(mode_word.railcom){
+  tft.fillRoundRect(RAIL_COM.X, RAIL_COM.Y, RAIL_COM.W, RAIL_COM.H, 4, ILI9341_DARKGREEN);
+  tft.drawRoundRect(RAIL_COM.X, RAIL_COM.Y, RAIL_COM.W, RAIL_COM.H, 4, ILI9341_BLACK);
+  tft.setCursor(RAIL_COM.X+7, RAIL_COM.Y+7);
+  tft.setTextColor(ILI9341_WHITE);
+  tft.setFont(Arial_16);
+  tft.println("R");
+  railcomDisplay_active = 1;
+  } else{
+    tft.fillRect(RAIL_COM.X, RAIL_COM.Y, RAIL_COM.W, RAIL_COM.H, BACKGROUND);
+    railcomDisplay_active = 0;
+  }
+  
+}
+
+void overloadDisplay(){
+  tft.fillScreen(BACKGROUND);
+  tft.fillRoundRect(7, 50, 306, 60, 10, ILI9341_BLACK);
+  tft.drawRoundRect(10, 50, 300, 60, 10, ILI9341_BLACK);
+  tft.setCursor(15, 65);
+  tft.setTextColor(ILI9341_RED);
+  tft.setFont(Arial_32);
+  tft.print("OVERLOAD!");
+  tft.setCursor(120, 140);
+  tft.setTextColor(ILI9341_RED);
+  tft.setFont(AwesomeF000_60);
+  tft.print((char)113);
+}
+
+void updateSessions(){
+  tft.fillRect(162, 5, 40, 18, BACKGROUND);
+  tft.setCursor(50+114, 5); //horizontal is original + 114
+  tft.setTextColor(ILI9341_BLACK);
+  tft.setFont(Arial_16);
+  tft.print(noOfSessions);
+  last_noOfSessions = noOfSessions;
+}
 
 void initScreen()
 {
@@ -138,76 +229,5 @@ void initScreen()
 
     Serial.println(RecordOn);
   }  
-}
-
-void initScreenCurrent(){
-  tft.fillScreen(BACKGROUND);
-  tft.fillRoundRect(7, 50, 306, 60, 10, ILI9341_BLACK);
-  //tft.fillRect(REDBUTTON_X, REDBUTTON_Y, REDBUTTON_W, REDBUTTON_H, ILI9341_BLACK);
-  //tft.drawRoundRect(10, 50, 300, 60, 10, ILI9341_BLACK);
-  tft.setCursor(15, 65);
-  tft.setTextColor(ILI9341_CYAN);
-  tft.setFont(Arial_28);
-  //tft.setTextSize(4);
-  //tft.setTextSize(8);
-  tft.print("Current = ");
-  tft.print(ch1Current);
-  tft.print(" A");
-  if(op_flags.op_pwr_m == 1)
-  {
-    trackOnMessage();
-  } else trackOffMessage();
-  railComIcon();
-}
-
-void updateScreenCurrent(){
-  tft.fillRect(188, 60, 85, 40, ILI9341_BLACK);
-  //tft.fillRect(REDBUTTON_X, REDBUTTON_Y, REDBUTTON_W, REDBUTTON_H, ILI9341_BLACK);
-  tft.setCursor(15, 65);
-  tft.setTextColor(ILI9341_CYAN);
-  tft.setFont(Arial_28);
-  //tft.setTextSize(4);
-  //tft.setTextSize(8);
-  //tft.print("Current = ");
-  //tft.print(ch1Current);
-  //tft.print(" A");
-  tft.setCursor(191, 65);
-  tft.print(ch1Current);
-  //tft.print(an0);
-  tft.print(" A");
-}
-
-
-void railComIcon()
-{
-  if(mode_word.railcom){
-    tft.fillRoundRect(RAIL_COM_X, RAIL_COM_Y, RAIL_COM_W, RAIL_COM_H, RAIL_COM_R, ILI9341_DARKGREEN);
-  //tft.fillRect(REDBUTTON_X, REDBUTTON_Y, REDBUTTON_W, REDBUTTON_H, ILI9341_BLACK);
-  tft.drawRoundRect(RAIL_COM_X, RAIL_COM_Y, RAIL_COM_W, RAIL_COM_H, RAIL_COM_R, ILI9341_BLACK);
-  tft.setCursor(RAIL_COM_X+7, RAIL_COM_Y+7);
-  tft.setTextColor(ILI9341_WHITE);
-  tft.setFont(Arial_16);
-  //tft.setTextSize(4);
-  tft.println("R");
-  railcomDisplay_active = 1;
-  } else{
-    tft.fillRoundRect(RAIL_COM_X, RAIL_COM_Y, RAIL_COM_W, RAIL_COM_H, RAIL_COM_R, BACKGROUND);
-    railcomDisplay_active = 0;
-
-  }
-  
-}
-
-void overloadDisplay(){
-  tft.fillScreen(BACKGROUND);
-  tft.fillRoundRect(7, 50, 306, 60, 10, ILI9341_BLACK);
-  //tft.fillRect(REDBUTTON_X, REDBUTTON_Y, REDBUTTON_W, REDBUTTON_H, ILI9341_BLACK);
-  tft.drawRoundRect(10, 50, 300, 60, 10, ILI9341_BLACK);
-  tft.setCursor(15, 65);
-  tft.setTextColor(ILI9341_RED);
-  tft.setFont(Arial_32);
-  //tft.setTextSize(4);
-  //tft.setTextSize(8);
-  tft.print("OVERLOAD!");
 }
 

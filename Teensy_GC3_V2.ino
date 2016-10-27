@@ -1,9 +1,17 @@
+
+
+
 #include <FlexCAN.h>
 #include <EEPROM.h>
 #include "project.h"
 #include <font_Arial.h> // from ILI9341_t3
 #include <font_ArialBold.h> // from ILI9341_t3
+#include <font_ArialBlack.h> // from ILI9341_t3
+#include <font_AwesomeF000.h>
 #include <Metro.h>
+#include "merg_logo.c"
+#include "pjrc_logo.c"
+
 
 
 #include <SPI.h>
@@ -25,7 +33,7 @@
 ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC, TFT_RST, TFT_MOSI, TFT_SCLK, TFT_MISO);
 XPT2046_Touchscreen ts(CS_PIN);
 
-FlexCAN CANbus(125000, 2);
+FlexCAN CANbus(125000, 0);
 Metro screenCurrentMetro = Metro(1000); 
 
 IntervalTimer dccBit;
@@ -168,6 +176,8 @@ boolean lastOverload;
 boolean railcomDisplay_active;
 boolean trackOffDisplay_active;
 boolean trackOnDisplay_active;
+unsigned int noOfSessions;
+unsigned int last_noOfSessions;
 
 
 // dcc packet buffers for service mode programming track
@@ -325,7 +335,7 @@ void setup() {
   iccq = 0;
 
   // Start slot timeout timer
-  slot_timer = 500000/58;  // Half second count down for 58uS interrupts
+  slot_timer = 8620;  // Half second count down for 58uS interrupts
 
   // Set up TMR0 for DCC bit timing with 58us period prescaler 4:1,
 
@@ -372,6 +382,8 @@ void setup() {
 
   tft.setCursor(0, 150);
   tft.println("Commencing Operation");
+  splashScreen();
+  delay(3000);
 
 }
 
@@ -456,12 +468,22 @@ void loop() {
             parse_cmd();
         }
 
+        //digitalWriteFast(LEDCANACT, q_queue[1].status.valid);
+
         // Handle slot & service mode timeout and beeps every half second
         if (op_flags.slot_timer) {
             for (i = 0; i < MAX_HANDLES; i++) {
-                if (q_queue[i].status.valid && q_queue[i].speed == 0) {
-                    if (--q_queue[i].timeout == 0) {
+                if (((q_queue[i].speed & 0x7F) == 0) && (q_queue[i].timeout > 0)) {
+                    --q_queue[i].timeout;
+                    if ((q_queue[i].status.valid) && ((q_queue[i].timeout) < 40)) {
                         q_queue[i].status.valid = 0;
+                        //rx_ptr.buf[1] = i;
+                        //purge_session();
+                    }
+                    if (q_queue[i].timeout == 0) {
+                        //q_queue[i].status.valid = 0;
+                        rx_ptr.buf[1] = i;
+                        purge_session();
                     }
                 }
             }
@@ -487,6 +509,18 @@ void loop() {
           noInterrupts();
           ch1Current = (ave*0.0008);
           interrupts();
+
+          /*
+          tft.fillRect(188, 60+50, 85, 40, ILI9341_WHITE);
+          tft.setTextColor(ILI9341_BLACK);
+          tft.setCursor(188 + 3, 60 + 50);
+          tft.print(q_queue[1].timeout);
+          */
+
+          if(noOfSessions != last_noOfSessions)
+          {
+            updateSessions();
+          }
           if(digitalRead(OVERLOAD_PIN)&(!lastOverload)){
             overloadDisplay();
             lastOverload = 1;
@@ -500,6 +534,7 @@ void loop() {
           {
             updateScreenCurrent();
           }
+          
           last_ch1Current = ch1Current;
         }
     }
