@@ -13,7 +13,7 @@
 extern void isr_high(void);
 extern void isr_low(void);
 
-extern unsigned an0;
+extern uint16_t an0;
 extern unsigned short retry_delay;
 extern uint16_t sum;
 extern uint16_t ave;
@@ -26,7 +26,7 @@ extern unsigned char dcc_bytes_m;
 extern unsigned char dcc_pre_m;
 extern unsigned char bit_start_pre;
 
-extern unsigned long slot_timer;
+extern unsigned slot_timer;
 
 #define __ISR_H
 #endif

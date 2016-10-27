@@ -37,7 +37,7 @@
 #define CONV_AN4 4
 
 
-unsigned an0;
+uint16_t an0;
 unsigned short retry_delay;
 uint16_t ave;
 uint16_t sum;
@@ -62,7 +62,7 @@ unsigned char dcc_bytes_m;
 unsigned char dcc_idx_s;
 unsigned char dcc_idx_m;
 
-unsigned long slot_timer;
+unsigned slot_timer;
 
 unsigned char awd_count;
 
@@ -204,12 +204,12 @@ void isr_high(void) {
     // Slot timeout and other timers - every half second
     //
     if (--slot_timer == 0) {
-        slot_timer = ((long)500000)/58;
+        slot_timer = 500000/58;
         op_flags.slot_timer = 1;
 
-		if (can_transmit_timeout != 0) {
-			--can_transmit_timeout;
-		}
+		  if (can_transmit_timeout != 0) {
+			  --can_transmit_timeout;
+		  }
     }
 
 
@@ -500,6 +500,7 @@ void isr_high(void) {
                 sum = sum - ave;            // S(t) = S(t-1) - A(t-1)
                 sum = sum + an0;            // S(t) = S(t-1) - A(t-1) + Vin
                 ave = sum>>2;               // A(t) = S(t)/4
+                
                 //ADCON0 = 0b00000001;		// select channel 0
                 //ad_state = ACQ_AN4;
 
@@ -567,7 +568,7 @@ void isr_high(void) {
                     if (retry_delay == 0) {
                        // Request power on again
                        dcc_flags.dcc_retry = 1;
-					   digitalWriteFast(OVERLOAD_PIN, 0);	
+					             digitalWriteFast(OVERLOAD_PIN, 0);	
                     }
                 }
             }

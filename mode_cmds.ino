@@ -26,7 +26,7 @@ void cmd_rmode(void) {
 //
 void cmd_wmode(void) {
   ee_write_short(EE_IMAX, imax);
-  EEPROM.write(EE_MW, mode_word.byte);
-  EEPROM.write(EE_MAGIC, MAGIC);
+  EEPROM.update(EE_MW, mode_word.byte);
+  EEPROM.update(EE_MAGIC, MAGIC);
 }
 

@@ -18,14 +18,37 @@ void power_control(unsigned char cmd) {
 
         // Acknowledge it
         Tx1.buf[0] = OPC_TOF;
+        trackOffMessage();
+        railcom_control(OPC_RTOF);
     } else  {
         // Turn on main track power
         op_flags.op_pwr_m = 1;
 
         // Acknowledge it
         Tx1.buf[0] = OPC_TON;
+        trackOnMessage();
+        railcom_control(OPC_RTON);
     }
     can_tx(1);
+}
+
+void railcom_control(unsigned char cmd) {
+    if (cmd == OPC_RTOF) {
+        // Turn off main track power
+        mode_word.railcom = 0;
+
+        // Acknowledge it
+        Tx1.buf[0] = OPC_TOF;
+    } else  {
+        // Turn on main track power
+        mode_word.railcom = 1;
+
+        // Acknowledge it
+        Tx1.buf[0] = OPC_TON;
+        
+    }
+    can_tx(1);
+    railComIcon();
 }
 
 //

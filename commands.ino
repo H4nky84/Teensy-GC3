@@ -111,7 +111,7 @@ void parse_cmd(void) {
         case OPC_RSTAT:
             //Collect flags
             stat_flags.byte = 0;
-            stat_flags.sm_on_off = !digitalRead(LED1);
+            stat_flags.sm_on_off = !digitalRead(SWAP_OP);
             stat_flags.track_on_off = op_flags.op_pwr_m;
             stat_flags.em_stop = dcc_flags.dcc_em_stop;
 

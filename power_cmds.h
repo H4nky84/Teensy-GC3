@@ -19,6 +19,7 @@ void power_control(unsigned char cmd);
 //extern void power_off_cycle(void);
 extern void packet_reset(unsigned char i);
 extern void packet_idle(unsigned char i);
+void railcom_control(unsigned char cmd);
 
 #define __POWER_CMDS_H
 #endif

@@ -42,8 +42,8 @@ uint16_t ee_read_short(unsigned char addr) {
  */
 void ee_write_short(unsigned char addr, uint16_t data) {
   unsigned char byte_addr = addr;
-  EEPROM.write(byte_addr++, (unsigned char)data);
-  EEPROM.write(byte_addr, (unsigned char)(data>>8));
+  EEPROM.update(byte_addr++, (unsigned char)data);
+  EEPROM.update(byte_addr, (unsigned char)(data>>8));
 }
 
 //

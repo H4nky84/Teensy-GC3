@@ -1,10 +1,33 @@
 #include <FlexCAN.h>
 #include <EEPROM.h>
 #include "project.h"
+#include <font_Arial.h> // from ILI9341_t3
+#include <font_ArialBold.h> // from ILI9341_t3
+#include <Metro.h>
 
-FlexCAN CANbus(125000, 0);  //Declare canbus object at 125kbit
 
-//Interval Timers to control precise timing of railcom cutout
+#include <SPI.h>
+#include <ILI9341_t3.h>
+#include <XPT2046_Touchscreen.h>
+
+
+// Use hardware SPI (on Uno, #13, #12, #11) and the above for CS/DC
+
+// For optimized ILI9341_t3 library
+#define TFT_DC      9
+#define TFT_CS      10
+#define TFT_RST    255  // 255 = unused, connect to 3.3V
+#define TFT_MOSI     11
+#define TFT_SCLK    14
+#define TFT_MISO    12
+#define CS_PIN  8
+
+ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC, TFT_RST, TFT_MOSI, TFT_SCLK, TFT_MISO);
+XPT2046_Touchscreen ts(CS_PIN);
+
+FlexCAN CANbus(125000, 2);
+Metro screenCurrentMetro = Metro(1000); 
+
 IntervalTimer dccBit;
 IntervalTimer railcomDelay;
 IntervalTimer railcomCh1Delay;
@@ -13,8 +36,8 @@ IntervalTimer railcomCh2Delay;
 IntervalTimer railcomCh2Occ;
 
 #define RAILCOM_SERIAL Serial1
+//#define USB_SERIAL Serial
 
-//CAN message buffers
 CAN_message_t Tx1, rx_ptr, TXB0;
 
 //
@@ -25,10 +48,10 @@ CAN_message_t Tx1, rx_ptr, TXB0;
 // 250mA overload is 125mV Vsense => 155 steps
 
 //
-#define I_ACK_DIFF 37  // No. steps for additional 60ma ACK pulse
+#define I_ACK_DIFF 38  // No. steps for additional 60ma ACK pulse
 #define I_OVERLOAD 155  //This is the value for 250mA for the service mode
 #define I_DEFAULT 1500
-#define I_LIMIT 2900    //This is for 4 amps (capability of L6203
+#define I_LIMIT 2400    //This is for 4 amps (capability of L6203
 
 // EEPROM addresses
 #define EE_MAGIC 0
@@ -37,6 +60,8 @@ CAN_message_t Tx1, rx_ptr, TXB0;
 
 // values
 #define MAGIC 93
+
+#define BACKGROUND ILI9341_WHITE
 
 //
 // Flags register used for DCC packet transmission
@@ -137,6 +162,12 @@ unsigned short PowerButtonTimer;
 volatile boolean railCom_active;
 volatile byte RailCom_CH1_data[2];
 volatile byte RailCom_CH2_data[6];
+volatile float ch1Current;
+volatile float last_ch1Current;
+boolean lastOverload;
+boolean railcomDisplay_active;
+boolean trackOffDisplay_active;
+boolean trackOnDisplay_active;
 
 
 // dcc packet buffers for service mode programming track
@@ -147,7 +178,28 @@ volatile unsigned char dcc_buff_m[7];
 // Module parameters at fixed place in ROM, also used by bootloader
 const unsigned char params[7] = {MANU_MERG, MINOR_VER, MODULE_ID, EVT_NUM, EVperEVT, NV_NUM, MAJOR_VER};
 
+
+
 void setup() {
+  Serial.begin(9600);
+  RAILCOM_SERIAL.begin(250000);
+  analogReadResolution(12);
+  
+  //SPI.setSCK(14);
+  tft.begin();
+  tft.fillScreen(ILI9341_BLACK);
+  tft.setTextColor(ILI9341_YELLOW);
+  tft.setRotation(3);
+  tft.setFont(Arial_16);
+  tft.setTextSize(1);
+  tft.println("Welcome to the Teensy GC3");
+  //ts.begin();
+
+  
+  delay(1000);
+
+  tft.fillScreen(ILI9341_BLACK);
+  
   pinMode(SWAP_OP, INPUT);
   pinMode(PWRBUTTON, INPUT_PULLUP);
   pinMode(LEDCANACT, OUTPUT);
@@ -160,12 +212,22 @@ void setup() {
   pinMode(OVERLOAD_PIN, OUTPUT);
   pinMode(BOOSTER_OUT, OUTPUT);
   pinMode(START_PREAMBLE, OUTPUT);
+  pinMode(LED1, OUTPUT);
+  pinMode(LED2, OUTPUT);
+  pinMode(35, OUTPUT);
+  pinMode(36, OUTPUT);
+  digitalWrite(35, LOW);
+  digitalWrite(36, LOW);
+
+  tft.setCursor(0, 0);
+
+  tft.println("IO Initialized");
   
   unsigned char i;
 
   noInterrupts();
 
-  RAILCOM_SERIAL.begin(250000);
+  
   
   PowerButtonDelay = 0;
   PowerTrigger = 0;
@@ -186,6 +248,9 @@ void setup() {
   retry_delay = 0;
   stat_flags.byte = 0;
 
+  tft.setCursor(0, 30);
+  tft.println("Operation Flags Initialized");
+
   // Setup ports
   //TRISBbits.TRISB4 = 0; /* CAN activity */
   //TRISBbits.TRISB1 = 0; /* RUN indicator */
@@ -197,6 +262,10 @@ void setup() {
   cbus_setup();
   //PIE3 = 0b00100001;      // CAN TX error and FIFOWM interrupts
   //RCONbits.IPEN = 1;      // enable interrupt priority levels
+
+  tft.setCursor(0, 60);
+
+  tft.println("CBUS Stack Initialized");
 
   ovld_delay = 0;
   bit_flag_s = 6;         // idle state
@@ -232,6 +301,10 @@ void setup() {
   s_head = 0;
   s_tail = 0;
 
+  tft.setCursor(0, 90);
+
+  tft.println("Queues Cleared");
+
   // clear the fifo receive buffers
   while (ecan_fifo_empty() == 0) {
       //rx_ptr->con = 0;
@@ -252,7 +325,7 @@ void setup() {
   iccq = 0;
 
   // Start slot timeout timer
-  slot_timer = ((long)500000)/58;  // Half second count down for 58uS interrupts
+  slot_timer = 500000/58;  // Half second count down for 58uS interrupts
 
   // Set up TMR0 for DCC bit timing with 58us period prescaler 4:1,
 
@@ -261,6 +334,9 @@ void setup() {
   SCB_SHPR3 = 0x20200000; //Change systick priority to 32 (3rd highest)
   dccBit.begin(isr_high, 58); //begin dcc timer with period of 58 us
   dccBit.priority(16);  //Set interrupt priority for bit timing to 16 (second highest)
+
+  tft.setCursor(0, 120);
+  tft.println("Bit Timer Initialized");
   
 
   // Programmer state machine
@@ -294,6 +370,9 @@ void setup() {
   // enable interrupts
   interrupts();
 
+  tft.setCursor(0, 150);
+  tft.println("Commencing Operation");
+
 }
 
 void loop() {
@@ -305,15 +384,16 @@ void loop() {
     // Initial power off on main track
     op_flags.op_pwr_m = 0;
 
+    //trackOffMessage();
+
     for (i = 0; i < 5; i++) {
         Tx1.buf[0] = OPC_ARST;
         can_tx(1);
     }
-    
-    //Temporary code to enable power on automatically and enabling railCom cutout
-    power_control(OPC_RTON);
-    PowerON = 0;
-    mode_word.railcom = 1;
+    //power_control(OPC_RTON);
+    //PowerON = 0;
+    mode_word.railcom = 0;
+    initScreenCurrent();
 
     // Loop forever
     while (1) {
@@ -401,7 +481,43 @@ void loop() {
       }
             op_flags.slot_timer = 0;
         }  // slot timer flag set
+
+        if (screenCurrentMetro.check() == 1)
+        {
+          noInterrupts();
+          ch1Current = (ave*0.0008);
+          interrupts();
+          if(digitalRead(OVERLOAD_PIN)&(!lastOverload)){
+            overloadDisplay();
+            lastOverload = 1;
+          }
+          if((!digitalRead(OVERLOAD_PIN))&(lastOverload))
+          {
+            initScreenCurrent();
+            lastOverload = 0;
+          }
+          if((ch1Current != last_ch1Current) & !lastOverload)
+          {
+            updateScreenCurrent();
+          }
+          last_ch1Current = ch1Current;
+        }
     }
+    /*
+    if (ts.touched()) {
+      TS_Point p = ts.getPoint();
+      Serial.print("Pressure = ");
+      Serial.print(p.z);
+      Serial.print(", x = ");
+      Serial.print(p.x);
+      Serial.print(", y = ");
+      Serial.print(p.y);
+      //delay(30);
+      Serial.println();
+    }
+    */
+
+    
 
 
 }
@@ -409,6 +525,7 @@ void loop() {
 void railComInit(){
    railcomDelay.end(); //stop the interval timer
    digitalWriteFast(START_PREAMBLE, 1);
+   //digitalWriteFast(LEDCANACT, 1);
    railCom_active = 1;
    digitalWriteFast(DCC_OUT_POS, 1);
    digitalWriteFast(DCC_OUT_NEG, 1);
@@ -431,10 +548,12 @@ void railComCh1End(){
   railcomCh2Delay.begin(railComCh2Start, 7); //begin railcom channel 2 delay timer with period of 7 us
   railcomCh2Delay.priority(0);  //Set interrupt priority for bit timing to 0 (highest)
   int i = 0;
+  
   while(RAILCOM_SERIAL.available()){
     RailCom_CH1_data[i] = RAILCOM_SERIAL.read();
     i++;
   }
+  
 }
 
 void railComCh2Start(){
@@ -450,14 +569,19 @@ void railComCh2End(){
   railcomCh2Occ.end();
   railCom_active = 0;
   int i = 0;
+  
   while(RAILCOM_SERIAL.available()){
     RailCom_CH2_data[i] = RAILCOM_SERIAL.read();
     i++;
   }
+  /*
   if (op_flags.op_pwr_m) {
         digitalWriteFast(DCC_OUT_POS, op_flags.op_bit_m);
         digitalWriteFast(DCC_OUT_NEG, !op_flags.op_bit_m);
         digitalWriteFast(BOOSTER_OUT, 1);
       }
+      //digitalWriteFast(LEDCANACT, 0);
+      */
 }
+
 
