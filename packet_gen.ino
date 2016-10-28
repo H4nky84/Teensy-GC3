@@ -149,11 +149,11 @@ void queue_add() {
         return;
     }
 	// Find free entry or match address
-    free_handle = 0;
-	  i = 0;
-    err = ERR_LOCO_STACK_FULL;
+    	free_handle = 255;	//Set this to 255 as the starting point, if it was set to 0 we can never use slot 0 so we must use another value
+	i = 0;
+    	err = ERR_LOCO_STACK_FULL;
 	while (i < MAX_HANDLES) {
-        if ((q_queue[i].status.valid == 0) && (free_handle == 0)) {
+        if ((q_queue[i].status.valid == 0) && (free_handle == 255)) {
             // Found first free entry, save it for later
             free_handle = i;
             err = 0;
