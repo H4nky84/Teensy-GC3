@@ -149,9 +149,9 @@ void queue_add() {
         return;
     }
 	// Find free entry or match address
-    	free_handle = 255;	//Set this to 255 as the starting point, if it was set to 0 we can never use slot 0 so we must use another value
-	i = 0;
-    	err = ERR_LOCO_STACK_FULL;
+    free_handle = 255;
+	  i = 0;
+    err = ERR_LOCO_STACK_FULL;
 	while (i < MAX_HANDLES) {
         if ((q_queue[i].status.valid == 0) && (free_handle == 255)) {
             // Found first free entry, save it for later
@@ -182,6 +182,16 @@ void queue_add() {
         Tx1.buf[7] = q_queue[1].fn2a;
         can_tx(8);
         noOfSessions ++;
+
+        /*
+        tft.fillRect(188, 60+50, 85, 40, ILI9341_WHITE);
+        tft.setCursor(30, 60 + 55);
+        tft.setTextColor(ILI9341_BLACK);
+        tft.setFont(Arial_16);
+        tft.print("Session = ");
+        tft.print(free_handle);
+        */
+        
 	} else {
         // Report error code
         Tx1.buf[0] = OPC_ERR;

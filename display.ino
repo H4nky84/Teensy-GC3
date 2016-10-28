@@ -55,6 +55,7 @@ rectangle TRACK_STAT = {80, 160, 140, 60};
 rectangle RAIL_COM = {280, 200, 30, 30};
 rectangle CURRENT_FRAME = {7, 50, 306, 60};
 rectangle CURRENT_BOX = {188, 60, 85, 40};
+rectangle SESSIONS_BOX = {90, 10, 85, 40};
 
 
 void drawFrame()
@@ -122,12 +123,14 @@ void initScreenCurrent(){
   tft.print("Current = ");
   tft.print(ch1Current);
   tft.print(" A");
+  
   if(op_flags.op_pwr_m == 1)
   {
     trackOnMessage();
   } else trackOffMessage();
+  
   railComIcon();
-  tft.setCursor(50, 5);
+  tft.setCursor(SESSIONS_BOX.X, SESSIONS_BOX.Y);
   tft.setTextColor(ILI9341_BLACK);
   tft.setFont(Arial_16);
   tft.print("Sessions = ");
@@ -149,6 +152,7 @@ void updateScreenCurrent(){
   tft.setTextColor(ILI9341_CYAN);
   tft.setFont(Arial_28);
   tft.setCursor(CURRENT_BOX.X + 3, CURRENT_BOX.Y + 5);
+  //tft.print(an0);
   tft.print(ch1Current);
   tft.print(" A");
 }
@@ -186,8 +190,8 @@ void overloadDisplay(){
 }
 
 void updateSessions(){
-  tft.fillRect(162, 5, 40, 18, BACKGROUND);
-  tft.setCursor(50+114, 5); //horizontal is original + 114
+  tft.fillRect(SESSIONS_BOX.X + 112, SESSIONS_BOX.Y, 40, 18, BACKGROUND);
+  tft.setCursor(SESSIONS_BOX.X+114, SESSIONS_BOX.Y); //horizontal is original + 114
   tft.setTextColor(ILI9341_BLACK);
   tft.setFont(Arial_16);
   tft.print(noOfSessions);
