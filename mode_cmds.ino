@@ -33,3 +33,4 @@ void cmd_wmode(void) {
   EEPROM.update(EE_MW, mode_word.byte);
   EEPROM.update(EE_MAGIC, MAGIC);
 }
+

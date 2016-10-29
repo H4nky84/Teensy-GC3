@@ -232,7 +232,7 @@ void queue_update(void) {
     // Only update for valid slots
     if (q_queue[rx_ptr.buf[1]].status.valid == 1) {
         // Reset slot timeout 
-        //q_queue[rx_ptr.buf[1]].timeout = 80;
+        q_queue[rx_ptr.buf[1]].timeout = activeTimeout;
         if (rx_ptr.buf[0] == OPC_DSPD) {
             // Put speed/dir update in refresh queue
             speed = rx_ptr.buf[2];
@@ -675,13 +675,13 @@ void send_q(void) {
 }
 
 void send_idle(void) {
-    // send an idle packet
-    dcc_buff_m[0] = 0xff;
-    dcc_buff_m[1] = 0;
-    dcc_buff_m[2] = 0xff;
-    dcc_bytes_m = 3;
-    dcc_buff_m[6] = 1;                  // send once
-	// hand off buffer
-	dcc_flags.dcc_rdy_m = 0;
-    idle_next = 0;
+  // send an idle packet
+  dcc_buff_m[0] = 0xff;
+  dcc_buff_m[1] = 0;
+  dcc_buff_m[2] = 0xff;
+  dcc_bytes_m = 3;
+  dcc_buff_m[6] = 1;                  // send once
+  // hand off buffer
+  dcc_flags.dcc_rdy_m = 0;
+  idle_next = 0;
 }

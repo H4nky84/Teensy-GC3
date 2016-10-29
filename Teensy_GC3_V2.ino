@@ -1,23 +1,20 @@
-
-
-
-#include <FlexCAN.h>
-#include <EEPROM.h>
 #include "project.h"
+
 #include <font_Arial.h> // from ILI9341_t3
 #include <font_ArialBold.h> // from ILI9341_t3
 #include <font_ArialBlack.h> // from ILI9341_t3
 #include <font_AwesomeF000.h>
+
+#include <FlexCAN.h>
+#include <EEPROM.h>
 #include <Metro.h>
-#include "merg_logo.c"
-#include "pjrc_logo.c"
-
-
 
 #include <SPI.h>
 #include <ILI9341_t3.h>
 #include <XPT2046_Touchscreen.h>
 
+#include "merg_logo.c"
+#include "pjrc_logo.c"
 
 // Use hardware SPI (on Uno, #13, #12, #11) and the above for CS/DC
 
@@ -34,7 +31,7 @@ ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC, TFT_RST, TFT_MOSI, TFT_SCLK, TFT_MIS
 XPT2046_Touchscreen ts(CS_PIN);
 
 FlexCAN CANbus(125000, 0);
-Metro screenCurrentMetro = Metro(1000); 
+//Metro screenCurrentMetro = Metro(1000); 
 
 IntervalTimer dccBit;
 IntervalTimer railcomDelay;
@@ -104,11 +101,11 @@ volatile union {
 volatile union {
     struct {
         unsigned boot_en:1;
-        unsigned :1;
+        unsigned dispatch_active:1; //Option for special queue to handle dispatch of locos
         unsigned s_full:1;
-        unsigned inactive_timeout:1;
-        unsigned active_timeout:1;
-        unsigned ztc_mode:1;  // ZTC compatibility mode
+        unsigned inactive_timeout:1;  //wether the inactive timeout feature is enabled
+        unsigned active_timeout:1;  //wether the inactive timeout feature is enabled
+        unsigned active_timeout_mode:1;  // Option for estop on active timeout or controlled stop
         unsigned direct_byte:1;
         unsigned railcom:1;
     } ;
@@ -180,9 +177,8 @@ boolean trackOffDisplay_active;
 boolean trackOnDisplay_active;
 unsigned int noOfSessions;
 unsigned int last_noOfSessions;
-uint16_t inactiveTineout;
+uint16_t inactiveTimeout;
 uint16_t activeTimeout;
-
 
 
 // dcc packet buffers for service mode programming track
@@ -327,7 +323,6 @@ void setup() {
   }
 
   mode_word.byte = 0;
-  mode_word.inactiveTimeout = 1;
 
   cmd_rmode();          // read mode & current limit
   // check for magic value and set defaults if not found
@@ -342,7 +337,7 @@ void setup() {
   iccq = 0;
 
   // Start slot timeout timer
-  slot_timer = 8620;  // Half second count down for 58uS interrupts
+  slot_timer = 8620;  // Half second count down for 58uS interrupts = 500000/58
 
   // Set up TMR0 for DCC bit timing with 58us period prescaler 4:1,
 
@@ -479,51 +474,66 @@ void loop() {
 
         // Handle slot & service mode timeout and beeps every half second
         if (op_flags.slot_timer) {
+          if(mode_word.inactive_timeout || mode_word.active_timeout) {
             for (i = 0; i < MAX_HANDLES; i++) {
-                if (((q_queue[i].speed & 0x7F) == 0) && (q_queue[i].timeout > 0)) {
-                    --q_queue[i].timeout;
-                    if ((q_queue[i].status.valid) && ((q_queue[i].timeout) < 40)) {
-                        q_queue[i].status.valid = 0;
-                        //rx_ptr.buf[1] = i;
-                        //purge_session();
-                    }
-                    if (q_queue[i].timeout == 0) {
-                        //q_queue[i].status.valid = 0;
-                        rx_ptr.buf[1] = i;
-                        purge_session();
-                    }
+              if (((q_queue[i].speed & 0x7F) == 0) && (q_queue[i].timeout > 0) && (mode_word.inactive_timeout) && (inactiveTimeout > 0)) {
+                q_queue[i].timeout = constrain(q_queue[i].timeout, 0, inactiveTimeout); //If using the inactive timeout then if the loco is stopped start the timer
+                --q_queue[i].timeout;
+                if ((q_queue[i].status.valid) && ((q_queue[i].timeout) < 40)) {
+                  q_queue[i].status.valid = 0;
+                  //rx_ptr.buf[1] = i;
+                  //purge_session();
                 }
+                
+                if (q_queue[i].timeout == 0) {
+                  //q_queue[i].status.valid = 0;
+                  rx_ptr.buf[1] = i;
+                  purge_session();
+                }
+                
+              }
+              else if (((q_queue[i].speed & 0x7F) != 0) && (q_queue[i].timeout > 0) && (mode_word.active_timeout) && (activeTimeout > 0)) {
+                --q_queue[i].timeout;
+                               
+                if (q_queue[i].timeout == 0) {
+                  //set loco speed to 0 then purge session
+                  rx_ptr.buf[0] = OPC_DSPD;
+                  rx_ptr.buf[1] = i;
+                  if (mode_word.active_timeout_mode) rx_ptr.buf[2] = 1; //If the active timeout bit is set to 1, do an estop
+                  else rx_ptr.buf[2] = 0;  //if not, do a controlled stop, not an estop
+                  queue_update();
+                  purge_session();
+                }
+              }
             }
+          }
+          
 
-      if (BeepCount > 0) {
-        op_flags.beeping = !op_flags.beeping;
-        digitalWriteFast(AWD, (op_flags.beeping || (retry_delay > 0)));
-        if (op_flags.beeping) {
-          BeepCount--;
-        }
-      }
-      else {
-        op_flags.beeping = 0;
-          if (retry_delay == 0) {
-          digitalWriteFast(AWD, 0);
-        }
-      }
-            op_flags.slot_timer = 0;
-        }  // slot timer flag set
-
-        if (screenCurrentMetro.check() == 1)
-        {
+          if (BeepCount > 0) {
+            op_flags.beeping = !op_flags.beeping;
+            digitalWriteFast(AWD, (op_flags.beeping || (retry_delay > 0)));
+            if (op_flags.beeping) {
+              BeepCount--;
+            }
+          }
+          else {
+            op_flags.beeping = 0;
+              if (retry_delay == 0) {
+              digitalWriteFast(AWD, 0);
+            }
+          }
+    
           noInterrupts();
           ch1Current = (ave*0.0008);
           interrupts();
-
+    
           /*
           tft.fillRect(188, 60+50, 85, 40, ILI9341_WHITE);
           tft.setTextColor(ILI9341_BLACK);
           tft.setCursor(188 + 3, 60 + 50);
           tft.print(q_queue[1].timeout);
           */
-
+    
           if(noOfSessions != last_noOfSessions)
           {
             updateSessions();
@@ -543,7 +553,9 @@ void loop() {
           }
           
           last_ch1Current = ch1Current;
-        }
+      
+          op_flags.slot_timer = 0;
+        }  // slot timer flag set
     }
     /*
     if (ts.touched()) {

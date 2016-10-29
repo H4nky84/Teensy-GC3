@@ -64,7 +64,7 @@ typedef struct refresh_queue {
     unsigned char fn1;
     unsigned char fn2;
     unsigned char fn2a;
-    unsigned char timeout;
+    uint16_t timeout;
 } refresh_queue_t;
 
 // The array of 32 entries for the loco queue

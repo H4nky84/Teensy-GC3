@@ -60,7 +60,10 @@ void parse_cmd(void) {
 
         case OPC_KLOC:
             // Release engine by session number
-            purge_session();
+            if (mode_word.dispatch_active) {  //if the special dispatch mode is activated, dont purge the session, put it into the special array of internal controls for the timeout period
+              
+            }
+            else purge_session();
             break;
 
         case OPC_QLOC:
