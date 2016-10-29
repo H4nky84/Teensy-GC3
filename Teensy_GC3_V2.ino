@@ -64,7 +64,9 @@ CAN_message_t Tx1, rx_ptr, TXB0;
 // EEPROM addresses
 #define EE_MAGIC 0
 #define EE_MW 2
-#define EE_IMAX 3
+#define EE_IMAX 4
+#define EE_ACTIVE_TIMEOUT 6
+#define EE_INACTIVE_TIMEOUT 8
 
 // values
 #define MAGIC 93
@@ -104,8 +106,8 @@ volatile union {
         unsigned boot_en:1;
         unsigned :1;
         unsigned s_full:1;
-        unsigned :1;
-        unsigned :1;
+        unsigned inactive_timeout:1;
+        unsigned active_timeout:1;
         unsigned ztc_mode:1;  // ZTC compatibility mode
         unsigned direct_byte:1;
         unsigned railcom:1;
@@ -178,6 +180,9 @@ boolean trackOffDisplay_active;
 boolean trackOnDisplay_active;
 unsigned int noOfSessions;
 unsigned int last_noOfSessions;
+uint16_t inactiveTineout;
+uint16_t activeTimeout;
+
 
 
 // dcc packet buffers for service mode programming track
