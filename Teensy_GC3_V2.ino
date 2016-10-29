@@ -327,12 +327,14 @@ void setup() {
   }
 
   mode_word.byte = 0;
+  mode_word.inactiveTimeout = 1;
 
   cmd_rmode();          // read mode & current limit
   // check for magic value and set defaults if not found
   if (EEPROM.read(EE_MAGIC) != 93)  {
       mode_word.byte = 0;
       imax = I_DEFAULT;
+      inactiveTimeout = 240;  //Set the default inactive timeout for 120 seconds
       cmd_wmode();            // Save default
   }
 
