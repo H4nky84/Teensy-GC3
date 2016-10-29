@@ -328,6 +328,7 @@ void setup() {
   // check for magic value and set defaults if not found
   if (EEPROM.read(EE_MAGIC) != 93)  {
       mode_word.byte = 0;
+      mode_word.inactive_timeout = 1;
       imax = I_DEFAULT;
       inactiveTimeout = 240;  //Set the default inactive timeout for 120 seconds
       cmd_wmode();            // Save default
