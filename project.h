@@ -38,7 +38,7 @@ extern unsigned short NN_temp;
 #define LED2    		  8	// RUN indicator
 
 #define PWRBUTTON    	6	// Power ON/OFF
-#define SWAP_OP 		  5	// Jumper for main on ext booster or on board
+#define SWAP_OP_HW 		  5	// Jumper for main on ext booster or on board
 
 #define OVERLOAD_PIN 	26		// (pin 18) For scope debug - set bit when overload detected
 #define BOOSTER_OUT		27		// (pin 17) For scope debug - set bit when in high priority ISR
@@ -51,6 +51,7 @@ extern unsigned short NN_temp;
 #define DCC_POS		23	    // one side of booster H-bridge o/p 
 #define DCC_EN        19
 
+#define CIRCBUFFERSIZE 4
 
 
 #endif	// __PROJECT_H

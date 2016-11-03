@@ -64,11 +64,14 @@ CAN_message_t Tx1, rx_ptr, TXB0;
 #define EE_IMAX 4
 #define EE_ACTIVE_TIMEOUT 6
 #define EE_INACTIVE_TIMEOUT 8
+#define EE_DISPATCH_TIMEOUT 10
 
 // values
 #define MAGIC 93
 
 #define BACKGROUND ILI9341_WHITE
+
+
 
 //
 // Flags register used for DCC packet transmission
@@ -100,7 +103,7 @@ volatile union {
 //
 volatile union {
     struct {
-        unsigned boot_en:1;
+        unsigned analog_en:1; //Option to run analog (PWM) output with address 0
         unsigned dispatch_active:1; //Option for special queue to handle dispatch of locos
         unsigned s_full:1;
         unsigned inactive_timeout:1;  //wether the inactive timeout feature is enabled
@@ -179,6 +182,15 @@ unsigned int noOfSessions;
 unsigned int last_noOfSessions;
 uint16_t inactiveTimeout;
 uint16_t activeTimeout;
+uint16_t dispatchTimeout;
+boolean analogOperationActive = 0;
+boolean railcomEnabled = 0;
+boolean SWAP_OP;  //status of the swap aoutput function
+uint16_t ch1Current_readings[CIRCBUFFERSIZE];    //array for ring buffer of current readings
+uint16_t ch2Current_readings[CIRCBUFFERSIZE];
+unsigned char ch1Current_idx = 0;     //indexes for ring buffers
+unsigned char ch2Current_idx = 0;
+
 
 
 // dcc packet buffers for service mode programming track
@@ -211,7 +223,7 @@ void setup() {
 
   tft.fillScreen(ILI9341_BLACK);
   
-  pinMode(SWAP_OP, INPUT);
+  pinMode(SWAP_OP_HW, INPUT);
   pinMode(PWRBUTTON, INPUT_PULLUP);
   pinMode(LEDCANACT, OUTPUT);
   pinMode(DCC_EN, OUTPUT);
@@ -299,6 +311,8 @@ void setup() {
   q_state = 0;
 
   // Clear the send queue
+  //maybe use memset for faster clearing
+  //memset(s_queue, 0, sizeof(s_queue));
   for (i = 0; i < 16; i++) {
       s_queue[i].status.byte = 0;
       s_queue[i].d[0] = 0;
@@ -322,17 +336,22 @@ void setup() {
       CANbus.read(rx_ptr);
   }
 
-  mode_word.byte = 0;
+  //mode_word.byte = 0;
 
   cmd_rmode();          // read mode & current limit
   // check for magic value and set defaults if not found
   if (EEPROM.read(EE_MAGIC) != 93)  {
       mode_word.byte = 0;
       mode_word.inactive_timeout = 1;
+      mode_word.railcom = 1;
       imax = I_DEFAULT;
-      inactiveTimeout = 240;  //Set the default inactive timeout for 120 seconds
+      inactiveTimeout = 240;  //Set the default inactive timeout for 120 seconds (2 minutes)
+      activeTimeout = 480;  //set the active timeout to be 240 seconds (4 minutes)
       cmd_wmode();            // Save default
   }
+
+  //set temporary staus bits after reading them from the EEPROM mode word
+  railcomEnabled = mode_word.railcom;
 
   ad_state = 0;
   iccq = 0;
@@ -407,7 +426,9 @@ void loop() {
     }
     //power_control(OPC_RTON);
     //PowerON = 0;
-    mode_word.railcom = 0;
+    //railcomEnabled = 1;
+    mode_word.analog_en = 1;
+    mode_word.dispatch_active = 1;
     initScreenCurrent();
 
     // Loop forever
@@ -415,6 +436,7 @@ void loop() {
 
       unsigned char pwr = digitalRead(PWRBUTTON);
       pwr = !pwr; // Input is inverted.
+      SWAP_OP = digitalRead(SWAP_OP_HW);
 
       if( pwr && !PowerTrigger && (PowerButtonTimer == 0) ) {
         PowerTrigger = 1;
@@ -441,7 +463,7 @@ void loop() {
             dcc_flags.dcc_overload = 0;
       digitalWriteFast(OVERLOAD_PIN, 0);
         } else {
-            if (digitalRead(SWAP_OP) == 0) {
+            if (SWAP_OP == 0) {
                 // Low power booster mode
           if (dcc_flags.dcc_retry) {
                     // Turn power back on after retry
@@ -475,7 +497,13 @@ void loop() {
 
         // Handle slot & service mode timeout and beeps every half second
         if (op_flags.slot_timer) {
-          if(mode_word.inactive_timeout || mode_word.active_timeout) {
+          //shouldnt need to deactivate interrupts as this will only run when it detects the slot timer bit which is triggered by the interrupt routine anyway
+          //noInterrupts();
+          ch1Current = (ave*0.0008);
+          //interrupts();
+
+          
+          if(mode_word.inactive_timeout || mode_word.active_timeout || mode_word.dispatch_active) {
             for (i = 0; i < MAX_HANDLES; i++) {
               if (((q_queue[i].speed & 0x7F) == 0) && (q_queue[i].timeout > 0) && (mode_word.inactive_timeout) && (inactiveTimeout > 0)) {
                 q_queue[i].timeout = constrain(q_queue[i].timeout, 0, inactiveTimeout); //If using the inactive timeout then if the loco is stopped start the timer
@@ -495,6 +523,10 @@ void loop() {
               }
               else if (((q_queue[i].speed & 0x7F) != 0) && (q_queue[i].timeout > 0) && (mode_word.active_timeout) && (activeTimeout > 0)) {
                 --q_queue[i].timeout;
+                //If this is in the dispatch queue just put its timeout back to the active one
+                if (d_queue[i].status.valid) {
+                  q_queue[i].timeout = activeTimeout;
+                }
                                
                 if (q_queue[i].timeout == 0) {
                   //set loco speed to 0 then purge session
@@ -504,6 +536,21 @@ void loop() {
                   else rx_ptr.buf[2] = 0;  //if not, do a controlled stop, not an estop
                   queue_update();
                   purge_session();
+                }
+              }
+              //check the dispatch queue for timeouts
+              if ((d_queue[i].status.valid) && (d_queue[i].timeout > 0) && (mode_word.dispatch_active)) {
+                --d_queue[i].timeout;
+                               
+                if (d_queue[i].timeout == 0) {
+                  //set loco speed to 0 then purge session
+                  rx_ptr.buf[0] = OPC_DSPD;
+                  rx_ptr.buf[1] = i;
+                  rx_ptr.buf[2] = 0;  //if not, do a controlled stop, not an estop
+                  queue_update();
+                  rx_ptr.buf[1] = i;
+                  purge_session();
+                  purge_dispatch(i);  //remove session from dispatch
                 }
               }
             }
@@ -524,9 +571,6 @@ void loop() {
             }
           }
     
-          noInterrupts();
-          ch1Current = (ave*0.0008);
-          interrupts();
     
           /*
           tft.fillRect(188, 60+50, 85, 40, ILI9341_WHITE);
@@ -577,7 +621,7 @@ void loop() {
 
 }
 
-void railComInit(){
+FASTRUN void railComInit(){
    railcomDelay.end(); //stop the interval timer
    digitalWriteFast(START_PREAMBLE, 1);
    //digitalWriteFast(LEDCANACT, 1);
@@ -589,7 +633,7 @@ void railComInit(){
    
 }
 
-void railComCh1Start(){
+FASTRUN void railComCh1Start(){
   digitalWriteFast(START_PREAMBLE, 0);
   railcomCh1Delay.end();
   RAILCOM_SERIAL.clear();
@@ -597,7 +641,7 @@ void railComCh1Start(){
   railcomCh1Occ.priority(0);  //Set interrupt priority for bit timing to 16 (highest)
 }
 
-void railComCh1End(){
+FASTRUN void railComCh1End(){
   digitalWriteFast(START_PREAMBLE, 1);
   railcomCh1Occ.end();
   railcomCh2Delay.begin(railComCh2Start, 7); //begin railcom channel 2 delay timer with period of 7 us
@@ -611,7 +655,7 @@ void railComCh1End(){
   
 }
 
-void railComCh2Start(){
+FASTRUN void railComCh2Start(){
   digitalWriteFast(START_PREAMBLE, 0);
   railcomCh2Delay.end();
   RAILCOM_SERIAL.clear();
@@ -619,8 +663,8 @@ void railComCh2Start(){
   railcomCh2Occ.priority(0);  //Set interrupt priority for bit timing to 0 (highest)
 }
 
-void railComCh2End(){
-  digitalWriteFast(START_PREAMBLE, 1);
+FASTRUN void railComCh2End(){
+  digitalWriteFast(START_PREAMBLE, 0);
   railcomCh2Occ.end();
   railCom_active = 0;
   int i = 0;

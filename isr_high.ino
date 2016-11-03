@@ -65,6 +65,7 @@ unsigned char dcc_idx_m;
 unsigned slot_timer;
 
 unsigned char awd_count;
+unsigned char i;
 
 #define dcc_pre_m   16
 
@@ -87,7 +88,7 @@ unsigned char awd_count;
 //
 // A/D readings are stored in RAM.
 //
-void isr_high(void) {
+FASTRUN void isr_high(void) {
 	//ISR_PIN = 1;		// flag start of ISR
 
     // TMR0 is enabled all the time and we send a continuous preamble
@@ -113,31 +114,35 @@ void isr_high(void) {
       PowerButtonTimer--;
     }
 
-    if (digitalRead(SWAP_OP) == 1) {
-        // J7 is out
-        // On-board booster is service mode output
-        if (op_flags.op_pwr_s) {
-			digitalWriteFast(DCC_EN, 1);
-          digitalWriteFast(DCC_NEG, !op_flags.op_bit_s);
-          digitalWriteFast(DCC_POS, op_flags.op_bit_s);
+    if (!analogOperationActive) {   //if the analog operation is not active, use the normal dcc timing output
+        if (SWAP_OP == 1) {
+          // J7 is out
+          // On-board booster is service mode output
+          if (op_flags.op_pwr_s) {
+            digitalWriteFast(DCC_EN, 1);
+            digitalWriteFast(DCC_NEG, !op_flags.op_bit_s);
+            digitalWriteFast(DCC_POS, op_flags.op_bit_s);
+          } else {
+              digitalWriteFast(DCC_EN, 0);
+              digitalWriteFast(DCC_POS, 0);
+              digitalWriteFast(DCC_NEG, 0);
+            }
         } else {
-			      digitalWriteFast(DCC_EN, 0);
-            digitalWriteFast(DCC_POS, 0);
-            digitalWriteFast(DCC_NEG, 0);
-        }
-    } else {
-        // J7 is in
-        // On board booster is main track output
-        if (op_flags.op_pwr_m) {
-			      digitalWriteFast(DCC_EN, 1);
-            digitalWriteFast(DCC_NEG, !op_flags.op_bit_m);
-            digitalWriteFast(DCC_POS, op_flags.op_bit_m);
-        } else {
-			      digitalWriteFast(DCC_EN, 0);
-            digitalWriteFast(DCC_POS, 0);
-            digitalWriteFast(DCC_NEG, 0);
-        }
+          // J7 is in
+          // On board booster is main track output
+          if (op_flags.op_pwr_m) {
+              digitalWriteFast(DCC_EN, 1);
+              digitalWriteFast(DCC_NEG, !op_flags.op_bit_m);
+              digitalWriteFast(DCC_POS, op_flags.op_bit_m);
+          } else {
+              digitalWriteFast(DCC_EN, 0);
+              digitalWriteFast(DCC_POS, 0);
+              digitalWriteFast(DCC_NEG, 0);
+          }
+      }
     }
+
+    
 
     // Booster output.
     if (op_flags.op_pwr_m) {
@@ -156,14 +161,14 @@ void isr_high(void) {
         digitalWriteFast(BOOSTER_OUT, 0);
     }
     //digitalWriteFast(START_PREAMBLE, bit_start_pre);
-    if (bit_start_pre & mode_word.railcom) {
+    if (bit_start_pre && railcomEnabled) {
       //railCom_active = 1;
       railcomDelay.begin(railComInit, 25); //begin dcc timer with period of 58 us
       railcomDelay.priority(16);  //Set interrupt priority for bit timing to 16 (second highest)
     }
 
     // Power LEDs
-    if (digitalRead(SWAP_OP) == 1) {
+    if (SWAP_OP == 1) {
         // J7 is out
         // On-board booster is service mode output
         // LED1 flashes during programming
@@ -195,7 +200,7 @@ void isr_high(void) {
     
     // In case mode is changed on the fly, we don't check for ack
     // when on board booster is main track output
-    if (digitalRead(SWAP_OP) == 0) {
+    if (SWAP_OP == 0) {
         dcc_flags.dcc_check_ack = 0;
        // ACK_PIN = 0;
     }
@@ -408,10 +413,10 @@ void isr_high(void) {
             if(bit_start_pre) {
                 bit_start_pre = 0; //reset preamble out pin to 0
             }
-            if(dcc_pre_m - pre_cnt_m == 5) {
-                digitalWriteFast(START_PREAMBLE, 0); //reset preamble out pin to 0
+            //if(dcc_pre_m - pre_cnt_m == 5) {
+                //digitalWriteFast(START_PREAMBLE, 0); //reset preamble out pin to 0
                 //railCom_active = 0;
-            }
+            //}
             if (pre_cnt_m == 0) {
                 bit_flag_m = FIRST_START;
             } else {
@@ -425,6 +430,7 @@ void isr_high(void) {
             toggle_dcc_m();
             if(pre_cnt_m == dcc_pre_m) {
                 bit_start_pre = 1; //reset preamble out pin to 0
+                //digitalWriteFast(START_PREAMBLE, 0);
             }
             //START_PREAMBLE = 1; //Set preamble activity pin to high for connection to railcom cutout
             bit_flag_m = SECOND_PRE;
@@ -483,6 +489,7 @@ void isr_high(void) {
         case CONV_AN0:
             if (1) {
                 an0 = analogRead(A3);
+                //ditch this averaging mechanism, not a great way to do it
                 // Averaging function used for current sense is
                 // S(t) = S(t-1) - [S(t-1)/N] + VIN
                 // A(t) = S(t)/N
@@ -497,9 +504,23 @@ void isr_high(void) {
                 // Re-arranged for N=4:
                 // S(t) = S(t-1) - A(t-1) + Vin
                 // A(t) = S(t)/4
-                sum = sum - ave;            // S(t) = S(t-1) - A(t-1)
-                sum = sum + an0;            // S(t) = S(t-1) - A(t-1) + Vin
-                ave = sum>>2;               // A(t) = S(t)/4
+                //sum = sum - ave;            // S(t) = S(t-1) - A(t-1)
+                //sum = sum + an0;            // S(t) = S(t-1) - A(t-1) + Vin
+                //ave = sum>>2;               // A(t) = S(t)/4
+
+                //implement a ring buffer instead
+                ch1Current_readings[ch1Current_idx] = an0;
+                sum = 0;
+                if (ch1Current_idx < CIRCBUFFERSIZE ) ch1Current_idx ++;
+                else ch1Current_idx = 0;
+
+                //use all of the circular buffer to implement an averaging function
+                for (i = 0; i < CIRCBUFFERSIZE; i++) {
+                  sum += ch1Current_readings[i];
+                }
+                ave = sum/CIRCBUFFERSIZE;
+
+                
                 
                 //ADCON0 = 0b00000001;		// select channel 0
                 //ad_state = ACQ_AN4;
@@ -521,7 +542,7 @@ void isr_high(void) {
                             if (I_LIMIT > an0) {
                                 // not dead short, look for overload
                                 if ((dcc_flags.dcc_check_ovld == 1)
-                                    || (digitalRead(SWAP_OP) == 0)) {         // low power booster mode
+                                    || (SWAP_OP == 0)) {         // low power booster mode
                                     if (ave >= imax) {
                                         ovld_delay = 130;         // 130*232us = 30160us delay
                                     }
@@ -529,7 +550,7 @@ void isr_high(void) {
                             } else {
                                 // Dead short - shutdown immediately
 								                digitalWriteFast(OVERLOAD_PIN, 1);
-                                if (digitalRead(SWAP_OP) == 1) {
+                                if (SWAP_OP == 1) {
                                     // programming mode so react immediately
                                     op_flags.op_pwr_s = 0;
                                     dcc_flags.dcc_overload = 1;
@@ -549,7 +570,7 @@ void isr_high(void) {
                             if (ave >= imax) {
                                 // still overload so power off
 								                digitalWriteFast(OVERLOAD_PIN, 1);				// Set spare output pin for scope monitoring
-                                if (digitalRead(SWAP_OP) == 1) {
+                                if (SWAP_OP == 1) {
                                     // programming mode so react immediately
                                     op_flags.op_pwr_s = 0;
                                     dcc_flags.dcc_overload = 1;

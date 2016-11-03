@@ -60,8 +60,9 @@ void parse_cmd(void) {
 
         case OPC_KLOC:
             // Release engine by session number
-            if (mode_word.dispatch_active) {  //if the special dispatch mode is activated, dont purge the session, put it into the special array of internal controls for the timeout period
-              
+            if ((mode_word.dispatch_active) && ((q_queue[rx_ptr.buf[1]].speed & 0x7F) != 0)) {  //if the special dispatch mode is activated, dont purge the session, put it into the special array of internal controls for the timeout period
+              d_queue_add(rx_ptr.buf[1]);
+              break;
             }
             else purge_session();
             break;
@@ -114,7 +115,7 @@ void parse_cmd(void) {
         case OPC_RSTAT:
             //Collect flags
             stat_flags.byte = 0;
-            stat_flags.sm_on_off = !digitalRead(SWAP_OP);
+            stat_flags.sm_on_off = !SWAP_OP;
             stat_flags.track_on_off = op_flags.op_pwr_m;
             stat_flags.em_stop = dcc_flags.dcc_em_stop;
 

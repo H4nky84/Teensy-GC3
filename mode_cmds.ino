@@ -19,6 +19,7 @@ void cmd_rmode(void) {
   imax = ee_read_short(EE_IMAX);
   inactiveTimeout = ee_read_short(EE_INACTIVE_TIMEOUT);
   activeTimeout = ee_read_short(EE_ACTIVE_TIMEOUT);
+  dispatchTimeout = ee_read_short(EE_DISPATCH_TIMEOUT);
 }
 
 //
@@ -30,6 +31,7 @@ void cmd_wmode(void) {
   ee_write_short(EE_IMAX, imax);
   ee_write_short(EE_INACTIVE_TIMEOUT, inactiveTimeout);
   ee_write_short(EE_ACTIVE_TIMEOUT, activeTimeout);
+  ee_write_short(EE_DISPATCH_TIMEOUT, dispatchTimeout);
   EEPROM.update(EE_MW, mode_word.byte);
   EEPROM.update(EE_MAGIC, MAGIC);
 }

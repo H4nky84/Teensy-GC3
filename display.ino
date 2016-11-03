@@ -155,12 +155,14 @@ void updateScreenCurrent(){
   //tft.print(an0);
   tft.print(ch1Current);
   tft.print(" A");
+  railComIcon();
+  analogIcon();
 }
 
 
 void railComIcon()
 {
-  if(mode_word.railcom){
+  if(railcomEnabled){
   tft.fillRoundRect(RAIL_COM.X, RAIL_COM.Y, RAIL_COM.W, RAIL_COM.H, 4, ILI9341_DARKGREEN);
   tft.drawRoundRect(RAIL_COM.X, RAIL_COM.Y, RAIL_COM.W, RAIL_COM.H, 4, ILI9341_BLACK);
   tft.setCursor(RAIL_COM.X+7, RAIL_COM.Y+7);
@@ -233,5 +235,21 @@ void initScreen()
 
     Serial.println(RecordOn);
   }  
+}
+
+void analogIcon()
+{
+  if(analogOperationActive){
+  tft.fillRoundRect(RAIL_COM.X, RAIL_COM.Y, RAIL_COM.W, RAIL_COM.H, 4, ILI9341_ORANGE);
+  tft.drawRoundRect(RAIL_COM.X, RAIL_COM.Y, RAIL_COM.W, RAIL_COM.H, 4, ILI9341_BLACK);
+  tft.setCursor(RAIL_COM.X+7, RAIL_COM.Y+7);
+  tft.setTextColor(ILI9341_WHITE);
+  tft.setFont(Arial_16);
+  tft.println("A");
+  } else{
+    tft.fillRect(RAIL_COM.X, RAIL_COM.Y, RAIL_COM.W, RAIL_COM.H, BACKGROUND);
+    railcomDisplay_active = 0;
+  }
+  
 }
 

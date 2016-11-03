@@ -67,9 +67,22 @@ typedef struct refresh_queue {
     uint16_t timeout;
 } refresh_queue_t;
 
+// A single dispatch queue entry
+typedef struct dispatch_queue {
+  slot_status status;
+  //dcc_address address;
+  //unsigned char speed;
+    //unsigned char fn1;
+    //unsigned char fn2;
+   // unsigned char fn2a;
+   unsigned char slot_idx;
+   uint16_t timeout;
+} dispatch_queue_t;
+
 // The array of 32 entries for the loco queue
-#define MAX_HANDLES 32
+#define MAX_HANDLES 64
 extern refresh_queue_t q_queue[MAX_HANDLES];
+extern dispatch_queue_t d_queue[MAX_HANDLES];
 extern unsigned char q_idx;
 extern unsigned char q_state;
 

@@ -35,13 +35,13 @@ void power_control(unsigned char cmd) {
 void railcom_control(unsigned char cmd) {
     if (cmd == OPC_RTOF) {
         // Turn off main track power
-        mode_word.railcom = 0;
+        railcomEnabled = 0;
 
         // Acknowledge it
         Tx1.buf[0] = OPC_TOF;
     } else  {
         // Turn on main track power
-        mode_word.railcom = 1;
+        railcomEnabled = 1;
 
         // Acknowledge it
         Tx1.buf[0] = OPC_TON;

@@ -12,6 +12,9 @@
 // 32 entry Q queue for regularly refreshed loco packets
 refresh_queue_t q_queue[MAX_HANDLES];
 
+//dispatch queue
+dispatch_queue_t d_queue[MAX_HANDLES];
+
 //#pragma udata S_QUEUE
 // Linker script puts this in GPR2
 // 16 entry S queue for one off packets
@@ -111,10 +114,16 @@ void broadcast_stop(void) {
 // Loco speed/dir is refreshed every time round.
 //
 void packet_gen(void) {
+  
     if (dcc_flags.dcc_em_stop == 1) {
+        if (analogOperationActive == 1){
+          analogWrite(DCC_NEG, 0);
+          analogWrite(DCC_POS, 0);   
+        }  else {
         // Broadcast emergency stop
         broadcast_stop();
         dcc_flags.dcc_em_stop = 0;
+        }
     } else if (idle_next == 0) {
         if (s_queue[s_tail].status.valid == 1) {
             // Send an immediate update
@@ -144,8 +153,32 @@ void packet_gen(void) {
 void queue_add() {
 	unsigned char i, free_handle, err;
 	unsigned int addr = ((unsigned int)rx_ptr.buf[1]<<8) | rx_ptr.buf[2];
-    // Ignore attempts to use address 0
-    if (addr == 0) {
+    // Ignore attempts to use address 0 unless analog operation is available
+    if (addr == 0xC000) {
+      if ((mode_word.analog_en) && (noOfSessions == 0) && (SWAP_OP == 0)) {
+        //turn off railcom operaiton and enable analog operation
+        railcomEnabled = 0;
+        analogOperationActive = 1;
+        // free_handle is the handle of available entry
+        // Initialise the entry
+        q_queue[0].address.addr_int = addr;
+        // Ensure correct DCC address format
+        q_queue[0].address.addr_hi.long0 = q_queue[0].address.addr_hi.long1;
+        q_queue[0].status.valid = 1;
+        // Report to cab
+        Tx1.buf[0] = OPC_PLOC;
+        Tx1.buf[1] = 0;
+        Tx1.buf[2] = rx_ptr.buf[1];
+        Tx1.buf[3] = rx_ptr.buf[2];
+        Tx1.buf[4] = q_queue[0].speed;
+        Tx1.buf[5] = q_queue[0].fn1;
+        Tx1.buf[6] = q_queue[0].fn2;
+        Tx1.buf[7] = q_queue[0].fn2a;
+        can_tx(8);
+        noOfSessions ++;
+        analogIcon();
+      }
+      //not valid for any other situation
         return;
     }
 	// Find free entry or match address
@@ -160,39 +193,69 @@ void queue_add() {
         } else if (q_queue[i].address.addr_int == addr) {
             // Found same address in valid slot - error
             err = ERR_LOCO_ADDR_TAKEN;
+            //check to see fi this loco is in the dispatch queue
+            if (d_queue[i].status.valid) {
+              err = 0xFF; //set the error code to 255 (undefined in standard)
+              purge_dispatch(i);  //remove from the dispatch queue as it has been taken over by a real cab
+              //return the slot index for use by that cab
+            }
+            
             break;
         }
 		i++;
 	}
 	if (err == 0) {
 		// free_handle is the handle of available entry
-        // Initialise the entry
-        q_queue[free_handle].address.addr_int = addr;
-        // Ensure correct DCC address format
-        q_queue[free_handle].address.addr_hi.long0 = q_queue[free_handle].address.addr_hi.long1;
-    	  q_queue[free_handle].status.valid = 1;
-        // Report to cab
-        Tx1.buf[0] = OPC_PLOC;
-        Tx1.buf[1] = free_handle;
-        Tx1.buf[2] = rx_ptr.buf[1];
-        Tx1.buf[3] = rx_ptr.buf[2];
-        Tx1.buf[4] = q_queue[1].speed;
-        Tx1.buf[5] = q_queue[1].fn1;
-        Tx1.buf[6] = q_queue[1].fn2;
-        Tx1.buf[7] = q_queue[1].fn2a;
-        can_tx(8);
-        noOfSessions ++;
+    // Initialise the entry
+    q_queue[free_handle].address.addr_int = addr;
+    // Ensure correct DCC address format
+    q_queue[free_handle].address.addr_hi.long0 = q_queue[free_handle].address.addr_hi.long1;
+	  q_queue[free_handle].status.valid = 1;
+    // Report to cab
+    Tx1.buf[0] = OPC_PLOC;
+    Tx1.buf[1] = free_handle;
+    Tx1.buf[2] = rx_ptr.buf[1];
+    Tx1.buf[3] = rx_ptr.buf[2];
+    Tx1.buf[4] = q_queue[free_handle].speed;
+    Tx1.buf[5] = q_queue[free_handle].fn1;
+    Tx1.buf[6] = q_queue[free_handle].fn2;
+    Tx1.buf[7] = q_queue[free_handle].fn2a;
+    can_tx(8);
+    noOfSessions ++;
 
-        /*
-        tft.fillRect(188, 60+50, 85, 40, ILI9341_WHITE);
-        tft.setCursor(30, 60 + 55);
-        tft.setTextColor(ILI9341_BLACK);
-        tft.setFont(Arial_16);
-        tft.print("Session = ");
-        tft.print(free_handle);
-        */
+    /*
+    tft.fillRect(188, 60+50, 85, 40, ILI9341_WHITE);
+    tft.setCursor(30, 60 + 55);
+    tft.setTextColor(ILI9341_BLACK);
+    tft.setFont(Arial_16);
+    tft.print("Session = ");
+    tft.print(free_handle);
+    */
         
-	} else {
+	} else if (err == 0xFF) {
+    // this entry exists but is in the dispatch queue so can be taken over
+    // Report to cab
+    Tx1.buf[0] = OPC_PLOC;
+    Tx1.buf[1] = i;
+    Tx1.buf[2] = highByte(q_queue[i].address.addr_int);
+    Tx1.buf[3] = lowByte(q_queue[i].address.addr_int);
+    Tx1.buf[4] = q_queue[i].speed;
+    Tx1.buf[5] = q_queue[i].fn1;
+    Tx1.buf[6] = q_queue[i].fn2;
+    Tx1.buf[7] = q_queue[i].fn2a;
+    can_tx(8);
+    //noOfSessions ++;
+
+    /*
+    tft.fillRect(188, 60+50, 85, 40, ILI9341_WHITE);
+    tft.setCursor(30, 60 + 55);
+    tft.setTextColor(ILI9341_BLACK);
+    tft.setFont(Arial_16);
+    tft.print("Session = ");
+    tft.print(free_handle);
+    */
+        
+  } else {
         // Report error code
         Tx1.buf[0] = OPC_ERR;
         Tx1.buf[1] = rx_ptr.buf[1];
@@ -225,6 +288,33 @@ void throttle_mode(void) {
 void queue_update(void) {
     unsigned char i = 0;
     unsigned char speed = 0;
+    if (analogOperationActive) {
+      if (q_queue[rx_ptr.buf[1]].status.valid == 1) {
+          // Reset slot timeout 
+        q_queue[rx_ptr.buf[1]].timeout = activeTimeout;
+        if (rx_ptr.buf[0] == OPC_DSPD) {
+          speed = rx_ptr.buf[2] & 0x7F;
+          if (speed < 2) speed = 0;
+          else {
+            speed = map(speed, 0, 127, 30, 255);
+          }
+
+          if (op_flags.op_pwr_m) {
+            digitalWriteFast(DCC_EN, 1);
+            if (bitRead(rx_ptr.buf[2], 7)) {
+                analogWrite(DCC_NEG, 0);
+                analogWrite(DCC_POS, speed);
+            } else {
+                analogWrite(DCC_POS, 0);
+                analogWrite(DCC_NEG, speed);
+            }
+          } else {
+            digitalWriteFast(DCC_EN, 0);
+          }
+        }
+      }
+    } else {
+    
     
     // get address of next s queue entry
     dcc_queue_t * s_ptr = &(s_queue[s_head]);
@@ -351,6 +441,7 @@ void queue_update(void) {
         // Slot was invalid
         ;
     }
+   }
 }
 
 //
@@ -395,6 +486,14 @@ void purge_session(void) {
     q_queue[rx_ptr.buf[1]].fn2 = 0;
     q_queue[rx_ptr.buf[1]].fn2a = 0;
     q_queue[rx_ptr.buf[1]].timeout = 0;
+    if (analogOperationActive) {
+      pinMode(DCC_NEG, OUTPUT);
+      pinMode(DCC_POS, OUTPUT);
+      analogOperationActive = 0;
+      railcomEnabled = mode_word.railcom;
+      analogIcon();
+      railComIcon();
+    }
     noOfSessions --;
 }
 
@@ -684,4 +783,32 @@ void send_idle(void) {
   // hand off buffer
   dcc_flags.dcc_rdy_m = 0;
   idle_next = 0;
+}
+
+//
+// disp_queue_add()
+//
+// Attempt to add an entry to the D queue
+//
+//This stores a loco session once a loco has been dispatched for retrieval later on if enabled
+//uses the same session position as the main stack to make processing easier
+//
+void d_queue_add(unsigned char idx) {
+    // Initialise the entry
+    d_queue[idx].slot_idx = idx;
+    // Ensure correct DCC address format
+    //d_queue[free_handle].address.addr_hi.long0 = q_queue[free_handle].address.addr_hi.long1;
+    d_queue[idx].status.valid = 1;
+    d_queue[idx].timeout = dispatchTimeout;
+}
+
+//
+// purge_dispatch
+//
+// Purge loco session from the dispatch queue
+//
+void purge_dispatch(unsigned char idx) {
+    d_queue[idx].slot_idx = 0;
+    d_queue[idx].status.valid = 0;
+    d_queue[idx].timeout = 0;
 }
