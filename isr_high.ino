@@ -65,7 +65,7 @@ unsigned char dcc_idx_m;
 unsigned slot_timer;
 
 unsigned char awd_count;
-unsigned char i;
+unsigned char j;
 
 #define dcc_pre_m   16
 
@@ -110,8 +110,8 @@ FASTRUN void isr_high(void) {
         digitalWriteFast(LEDCANACT, 0);
     }
 
-    if( PowerButtonTimer > 0 ) {
-      PowerButtonTimer--;
+    if( TouchTapTimer > 0 ) {
+      TouchTapTimer--;
     }
 
     if (!analogOperationActive) {   //if the analog operation is not active, use the normal dcc timing output
@@ -476,135 +476,108 @@ FASTRUN void isr_high(void) {
     // check gain after 130 cycles or approx 30ms. If the overload is still present
     // in programming mode then DCC_FLAGS, DCC_OVERLOAD is set.
     //
-    switch(ad_state) {
-        case AD_RESET:		// 0
-            ad_state = ACQ_AN0;
-            break;
+    
+    //ditch this averaging mechanism, not a great way to do it
+    // Averaging function used for current sense is
+    // S(t) = S(t-1) - [S(t-1)/N] + VIN
+    // A(t) = S(t)/N
+    //
+    // where S is an accumulator, N is the length of the filter (i.e.,
+    // the number of samples included in the rolling average), and A is
+    // the result of the averaging function.
+    // The time constant of the averaging equation is given by t = N/FS,
+    // where N is again the length of the filter and FS is the sampling
+    // frequency.
+    //
+    // Re-arranged for N=4:
+    // S(t) = S(t-1) - A(t-1) + Vin
+    // A(t) = S(t)/4
+    //sum = sum - ave;            // S(t) = S(t-1) - A(t-1)
+    //sum = sum + an0;            // S(t) = S(t-1) - A(t-1) + Vin
+    //ave = sum>>2;               // A(t) = S(t)/4
 
-        case ACQ_AN0:
-            ad_state = CONV_AN0;
-            //ADCON0bits.GO = 1;
-            break;
+    an0 = analogRead(A3);
 
-        case CONV_AN0:
-            if (1) {
-                an0 = analogRead(A3);
-                //ditch this averaging mechanism, not a great way to do it
-                // Averaging function used for current sense is
-                // S(t) = S(t-1) - [S(t-1)/N] + VIN
-                // A(t) = S(t)/N
-                //
-                // where S is an accumulator, N is the length of the filter (i.e.,
-                // the number of samples included in the rolling average), and A is
-                // the result of the averaging function.
-                // The time constant of the averaging equation is given by t = N/FS,
-                // where N is again the length of the filter and FS is the sampling
-                // frequency.
-                //
-                // Re-arranged for N=4:
-                // S(t) = S(t-1) - A(t-1) + Vin
-                // A(t) = S(t)/4
-                //sum = sum - ave;            // S(t) = S(t-1) - A(t-1)
-                //sum = sum + an0;            // S(t) = S(t-1) - A(t-1) + Vin
-                //ave = sum>>2;               // A(t) = S(t)/4
+    //implement a ring buffer instead
+    ch1Current_readings[ch1Current_idx] = an0;
+    
+    ch1Current_idx = (ch1Current_idx + 1)%CIRCBUFFERSIZE; //keep index within buffer size and wrap around
+    //if (ch1Current_idx < CIRCBUFFERSIZE ) ch1Current_idx ++;
+    //else ch1Current_idx = 0;
+    
+    sum = 0;
+    //use all of the circular buffer to implement an averaging function
+    for (j = 0; j < CIRCBUFFERSIZE; j++) {
+      sum += ch1Current_readings[j];
+    }
+    ave = sum/CIRCBUFFERSIZE;
 
-                //implement a ring buffer instead
-                ch1Current_readings[ch1Current_idx] = an0;
-                sum = 0;
-                if (ch1Current_idx < CIRCBUFFERSIZE ) ch1Current_idx ++;
-                else ch1Current_idx = 0;
-
-                //use all of the circular buffer to implement an averaging function
-                for (i = 0; i < CIRCBUFFERSIZE; i++) {
-                  sum += ch1Current_readings[i];
+    // Are we waiting for retry delay?
+    if (retry_delay == 0) {
+        // No, have we had a potential overload?
+        if (ovld_delay == 0) {
+            // No, do normal checks
+            if (dcc_flags.dcc_check_ack == 1) {
+                // has current increased, denoting ACK?
+                if (ave >= (iccq + I_ACK_DIFF)) {
+                    dcc_flags.dcc_ack = 1;
+	                  //	ACK_PIN = 1;
                 }
-                ave = sum/CIRCBUFFERSIZE;
-
-                
-                
-                //ADCON0 = 0b00000001;		// select channel 0
-                //ad_state = ACQ_AN4;
-
-                // Are we waiting for retry delay?
-                if (retry_delay == 0) {
-                    // No, have we had a potential overload?
-                    if (ovld_delay == 0) {
-                        // No, do normal checks
-                        if (dcc_flags.dcc_check_ack == 1) {
-                            // has current increased, denoting ACK?
-                            if (ave >= (iccq + I_ACK_DIFF)) {
-                                dcc_flags.dcc_ack = 1;
-							//	ACK_PIN = 1;
-                            }
-                        } else {
-                            // check for dead short immediately
-                            // current is limited by LM317
-                            if (I_LIMIT > an0) {
-                                // not dead short, look for overload
-                                if ((dcc_flags.dcc_check_ovld == 1)
-                                    || (SWAP_OP == 0)) {         // low power booster mode
-                                    if (ave >= imax) {
-                                        ovld_delay = 130;         // 130*232us = 30160us delay
-                                    }
-                                }
-                            } else {
-                                // Dead short - shutdown immediately
-								                digitalWriteFast(OVERLOAD_PIN, 1);
-                                if (SWAP_OP == 1) {
-                                    // programming mode so react immediately
-                                    op_flags.op_pwr_s = 0;
-                                    dcc_flags.dcc_overload = 1;
-                                    dcc_flags.dcc_check_ovld = 0;
-                                } else {
-                                    // low power booster mode start retry delay
-                                    op_flags.op_pwr_m = 0;
-                                    retry_delay = 9 * 256;          // 9 * 256 * 232us ~ 535ms
-                                }
-                            }
-                        }
-                    } else {
-                        // countdown overload delay
-                        ovld_delay--;
-                        if (ovld_delay == 0) {
-                            // Check again
-                            if (ave >= imax) {
-                                // still overload so power off
-								                digitalWriteFast(OVERLOAD_PIN, 1);				// Set spare output pin for scope monitoring
-                                if (SWAP_OP == 1) {
-                                    // programming mode so react immediately
-                                    op_flags.op_pwr_s = 0;
-                                    dcc_flags.dcc_overload = 1;
-                                    dcc_flags.dcc_check_ovld = 0;
-                                } else {
-                                    // low power booster mode restart retry delay
-                                    op_flags.op_pwr_m = 0;
-                                    retry_delay = 9 * 256;          // 9 * 256 * 232us ~ 535ms
-                                }
-                            }
+            } else {
+                // check for dead short immediately
+                // current is limited by LM317
+                if (I_LIMIT > an0) {
+                    // not dead short, look for overload
+                    if ((dcc_flags.dcc_check_ovld == 1)
+                        || (SWAP_OP == 0)) {         // low power booster mode
+                        if (ave >= imax) {
+                            ovld_delay = 130;         // 130*232us = 30160us delay
                         }
                     }
                 } else {
-                    // countdown retry delay
-                    retry_delay--;
-                    if (retry_delay == 0) {
-                       // Request power on again
-                       dcc_flags.dcc_retry = 1;
-					             digitalWriteFast(OVERLOAD_PIN, 0);	
+                    // Dead short - shutdown immediately
+		                digitalWriteFast(OVERLOAD_PIN, 1);
+                    if (SWAP_OP == 1) {
+                        // programming mode so react immediately
+                        op_flags.op_pwr_s = 0;
+                        dcc_flags.dcc_overload = 1;
+                        dcc_flags.dcc_check_ovld = 0;
+                    } else {
+                        // low power booster mode start retry delay
+                        op_flags.op_pwr_m = 0;
+                        retry_delay = 9 * 256;          // 9 * 256 * 232us ~ 535ms
                     }
                 }
             }
-            break;
-
-        case ACQ_AN4:
-            ad_state = CONV_AN4;
-            break;
-
-        case CONV_AN4:
-            ad_state = ACQ_AN0;
-            break;
-
-        default:
-            break;
+        } else {
+            // countdown overload delay
+            ovld_delay--;
+            if (ovld_delay == 0) {
+                // Check again
+                if (ave >= imax) {
+                    // still overload so power off
+		                digitalWriteFast(OVERLOAD_PIN, 1);				// Set spare output pin for scope monitoring
+                    if (SWAP_OP == 1) {
+                        // programming mode so react immediately
+                        op_flags.op_pwr_s = 0;
+                        dcc_flags.dcc_overload = 1;
+                        dcc_flags.dcc_check_ovld = 0;
+                    } else {
+                        // low power booster mode restart retry delay
+                        op_flags.op_pwr_m = 0;
+                        retry_delay = 9 * 256;          // 9 * 256 * 232us ~ 535ms
+                    }
+                }
+            }
+        }
+    } else {
+        // countdown retry delay
+        retry_delay--;
+        if (retry_delay == 0) {
+           // Request power on again
+           dcc_flags.dcc_retry = 1;
+           digitalWriteFast(OVERLOAD_PIN, 0);	
+        }
     }
 
 	//ISR_PIN = 0;   // end of ISR

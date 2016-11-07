@@ -120,6 +120,7 @@ void throttle_mode(void);
 void queue_update(void);
 void query_session(void);
 void purge_session(void);
+void purge_session(unsigned char idx);
 void keep_alive(void);
 void dcc_packet(void);
 void em_stop(void);

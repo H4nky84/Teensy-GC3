@@ -9,6 +9,7 @@
 #include "commands.h"
 #include "power_cmds.h"
 #include "program_cmds.h"
+#include "typedefs.h"
 
 // for DCC debug packets
 #define HAS_DCC
@@ -35,7 +36,7 @@ extern unsigned short NN_temp;
 #define AWD         	24	// Sounder
 #define LEDCANACT     13   // CBUS activity
 #define LED1    		  7	// Internal booster/service track
-#define LED2    		  8	// RUN indicator
+#define LED2    		  29	// RUN indicator
 
 #define PWRBUTTON    	6	// Power ON/OFF
 #define SWAP_OP_HW 		  5	// Jumper for main on ext booster or on board

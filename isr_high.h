@@ -10,6 +10,8 @@
 #define NORM_PRE	16  //Increased to 16 for railcom compatibility
 #define CIRCBUFFERSIZE 4
 
+//#include "project.h"
+
 // ISR prototype 
 extern void isr_high(void);
 extern void isr_low(void);

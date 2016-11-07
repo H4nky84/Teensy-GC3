@@ -478,7 +478,7 @@ void query_session(void) {
 // Purge loco session from the queue
 //
 void purge_session(void) {
-    rx_ptr.buf[1] &= 0x1f;
+    rx_ptr.buf[1] &= 0x3f;
     q_queue[rx_ptr.buf[1]].status.valid = 0;
     q_queue[rx_ptr.buf[1]].address.addr_int = 0;
     q_queue[rx_ptr.buf[1]].speed = 0x80;
@@ -486,6 +486,31 @@ void purge_session(void) {
     q_queue[rx_ptr.buf[1]].fn2 = 0;
     q_queue[rx_ptr.buf[1]].fn2a = 0;
     q_queue[rx_ptr.buf[1]].timeout = 0;
+    if (analogOperationActive) {
+      pinMode(DCC_NEG, OUTPUT);
+      pinMode(DCC_POS, OUTPUT);
+      analogOperationActive = 0;
+      railcomEnabled = mode_word.railcom;
+      analogIcon();
+      railComIcon();
+    }
+    noOfSessions --;
+}
+
+//
+// purge_session
+//
+// Purge loco session from the queue
+//
+void purge_session(unsigned char idx) {
+    idx &= 0x3f;
+    q_queue[idx].status.valid = 0;
+    q_queue[idx].address.addr_int = 0;
+    q_queue[idx].speed = 0x80;
+    q_queue[idx].fn1 = 0;
+    q_queue[idx].fn2 = 0;
+    q_queue[idx].fn2a = 0;
+    q_queue[idx].timeout = 0;
     if (analogOperationActive) {
       pinMode(DCC_NEG, OUTPUT);
       pinMode(DCC_POS, OUTPUT);

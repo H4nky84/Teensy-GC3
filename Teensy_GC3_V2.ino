@@ -4,10 +4,11 @@
 #include <font_ArialBold.h> // from ILI9341_t3
 #include <font_ArialBlack.h> // from ILI9341_t3
 #include <font_AwesomeF000.h>
+#include <font_AwesomeF080.h>
 
 #include <FlexCAN.h>
 #include <EEPROM.h>
-#include <Metro.h>
+//#include <Metro.h>
 
 #include <SPI.h>
 #include <ILI9341_t3.h>
@@ -28,9 +29,12 @@
 #define CS_PIN  8
 
 ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC, TFT_RST, TFT_MOSI, TFT_SCLK, TFT_MISO);
-XPT2046_Touchscreen ts(CS_PIN);
+XPT2046_Touchscreen ts(CS_PIN, 6);
 
-FlexCAN CANbus(125000, 0);
+//touchscreen x values go from 3700 (left hand side) to 350 (right hand side)
+// touchscreen y values go from  3700 (top) to 400 (bottom)
+
+FlexCAN CANbus(125000, 2);
 //Metro screenCurrentMetro = Metro(1000); 
 
 IntervalTimer dccBit;
@@ -53,7 +57,7 @@ CAN_message_t Tx1, rx_ptr, TXB0;
 // 250mA overload is 125mV Vsense => 155 steps
 
 //
-#define I_ACK_DIFF 38  // No. steps for additional 60ma ACK pulse
+#define I_ACK_DIFF 30  // No. steps for additional 60ma ACK pulse
 #define I_OVERLOAD 155  //This is the value for 250mA for the service mode
 #define I_DEFAULT 1500
 #define I_LIMIT 2400    //This is for 4 amps (capability of L6203
@@ -72,11 +76,10 @@ CAN_message_t Tx1, rx_ptr, TXB0;
 #define BACKGROUND ILI9341_WHITE
 
 
-
 //
 // Flags register used for DCC packet transmission
 //
-volatile union {
+volatile union dccflags_t{
     struct {
         unsigned dcc_rdy_s:1;        // set if Tx ready for a new packet
         unsigned dcc_long_pre:1;  // set forces long preamble
@@ -101,7 +104,7 @@ volatile union {
 //
 // MODE_WORD flags
 //
-volatile union {
+volatile union modeword_t{
     struct {
         unsigned analog_en:1; //Option to run analog (PWM) output with address 0
         unsigned dispatch_active:1; //Option for special queue to handle dispatch of locos
@@ -118,7 +121,7 @@ volatile union {
 //
 // OP_FLAGS for DCC output
 //
-volatile union {
+volatile union opflags_t{
     struct {
         unsigned op_pwr_s:1;
         unsigned op_bit_s:1;
@@ -135,7 +138,7 @@ volatile union {
 //
 // FLAGS for STAT output
 //
-volatile union {
+volatile union statflags_t{
     struct {
         unsigned hw_err:1;
         unsigned track_err:1;
@@ -168,6 +171,7 @@ unsigned short LEDCanActTimer;
 unsigned char PowerTrigger;
 unsigned char PowerON;
 unsigned short PowerButtonTimer;
+unsigned int TouchTapTimer;
 //extern const unsigned char params[7];
 volatile boolean railCom_active;
 volatile byte RailCom_CH1_data[2];
@@ -192,6 +196,20 @@ unsigned char ch1Current_idx = 0;     //indexes for ring buffers
 unsigned char ch2Current_idx = 0;
 
 
+screenDisplay currentScreen = Splash;
+
+
+boolean wastouched = true;
+
+rectangle TRACK_STAT = {90, 160, 140, 60, 1};
+rectangle RAIL_COM = {280, 120, 30, 30, 0};
+rectangle CURRENT_FRAME = {7, 50, 306, 60, 1};
+rectangle CURRENT_BOX = {188, 60, 85, 40, 1};
+rectangle SESSIONS_BOX = {90, 10, 85, 40, 1};
+rectangle SWAP_BOX = {10, 160, 60, 60, 1};
+rectangle SETTINGS_BOX = {250, 160, 60, 60, 1};
+rectangle RETURN_BOX = {250, 160, 60, 60, 0};
+
 
 // dcc packet buffers for service mode programming track
 // and main track
@@ -200,6 +218,8 @@ volatile unsigned char dcc_buff_m[7];
 
 // Module parameters at fixed place in ROM, also used by bootloader
 const unsigned char params[7] = {MANU_MERG, MINOR_VER, MODULE_ID, EVT_NUM, EVperEVT, NV_NUM, MAJOR_VER};
+
+unsigned char i;
 
 
 
@@ -211,20 +231,20 @@ void setup() {
   //SPI.setSCK(14);
   tft.begin();
   tft.fillScreen(ILI9341_BLACK);
-  tft.setTextColor(ILI9341_YELLOW);
+  //tft.setTextColor(ILI9341_YELLOW);
   tft.setRotation(3);
-  tft.setFont(Arial_16);
-  tft.setTextSize(1);
-  tft.println("Welcome to the Teensy GC3");
-  //ts.begin();
+  //tft.setFont(Arial_16);
+  //tft.setTextSize(1);
+  //tft.println("Welcome to the Teensy GC3");
+  ts.begin();
 
   
-  delay(1000);
+  //delay(1000);
 
-  tft.fillScreen(ILI9341_BLACK);
+  //tft.fillScreen(ILI9341_BLACK);
   
   pinMode(SWAP_OP_HW, INPUT);
-  pinMode(PWRBUTTON, INPUT_PULLUP);
+  //pinMode(PWRBUTTON, INPUT_PULLUP);
   pinMode(LEDCANACT, OUTPUT);
   pinMode(DCC_EN, OUTPUT);
   pinMode(DCC_OUT_POS, OUTPUT);
@@ -242,24 +262,18 @@ void setup() {
   digitalWrite(35, LOW);
   digitalWrite(36, LOW);
 
-  tft.setCursor(0, 0);
-
-  tft.println("IO Initialized");
-  
-  unsigned char i;
+  //tft.setCursor(0, 0);
+  //tft.println("IO Initialized");
 
   noInterrupts();
 
-  
-  
   PowerButtonDelay = 0;
   PowerTrigger = 0;
   PowerON = 0;
-  PowerButtonTimer = 0;
+  TouchTapTimer = 0;
   
   //
   // setup initial values before enabling ports
-  // Port A are analogue
   //
   op_flags.op_pwr_s = 0;
   op_flags.op_pwr_m = 0;
@@ -271,24 +285,15 @@ void setup() {
   retry_delay = 0;
   stat_flags.byte = 0;
 
-  tft.setCursor(0, 30);
-  tft.println("Operation Flags Initialized");
-
-  // Setup ports
-  //TRISBbits.TRISB4 = 0; /* CAN activity */
-  //TRISBbits.TRISB1 = 0; /* RUN indicator */
-  //TRISBbits.TRISB0 = 0; /* Internal booster/PT */
-  //TRISBbits.TRISB7 = 1; /* Power button */
+  //tft.setCursor(0, 30);
+  //tft.println("Operation Flags Initialized");
 
   digitalWriteFast(DCC_EN, 1);
 
   cbus_setup();
-  //PIE3 = 0b00100001;      // CAN TX error and FIFOWM interrupts
-  //RCONbits.IPEN = 1;      // enable interrupt priority levels
 
-  tft.setCursor(0, 60);
-
-  tft.println("CBUS Stack Initialized");
+  //tft.setCursor(0, 60);
+  //tft.println("CBUS Stack Initialized");
 
   ovld_delay = 0;
   bit_flag_s = 6;         // idle state
@@ -326,17 +331,14 @@ void setup() {
   s_head = 0;
   s_tail = 0;
 
-  tft.setCursor(0, 90);
-
-  tft.println("Queues Cleared");
+  //tft.setCursor(0, 90);
+  //tft.println("Queues Cleared");
 
   // clear the fifo receive buffers
   while (ecan_fifo_empty() == 0) {
       //rx_ptr->con = 0;
       CANbus.read(rx_ptr);
   }
-
-  //mode_word.byte = 0;
 
   cmd_rmode();          // read mode & current limit
   // check for magic value and set defaults if not found
@@ -347,6 +349,7 @@ void setup() {
       imax = I_DEFAULT;
       inactiveTimeout = 240;  //Set the default inactive timeout for 120 seconds (2 minutes)
       activeTimeout = 480;  //set the active timeout to be 240 seconds (4 minutes)
+      dispatchTimeout = 500;
       cmd_wmode();            // Save default
   }
 
@@ -359,16 +362,13 @@ void setup() {
   // Start slot timeout timer
   slot_timer = 8620;  // Half second count down for 58uS interrupts = 500000/58
 
-  // Set up TMR0 for DCC bit timing with 58us period prescaler 4:1,
-
-
   dccBit.priority(16);  //Set interrupt priority for bit timing to 16 (second highest)
   SCB_SHPR3 = 0x20200000; //Change systick priority to 32 (3rd highest)
   dccBit.begin(isr_high, 58); //begin dcc timer with period of 58 us
   dccBit.priority(16);  //Set interrupt priority for bit timing to 16 (second highest)
 
-  tft.setCursor(0, 120);
-  tft.println("Bit Timer Initialized");
+  //tft.setCursor(0, 120);
+  //tft.println("Bit Timer Initialized");
   
 
   // Programmer state machine
@@ -380,9 +380,6 @@ void setup() {
 
   // Setup ID
   NN_temp = DEFAULT_NN;
-  //Tx1[con] = 0;
-  //Tx1[sidh] = 0b10110000 | (FIXED_CAN_ID & 0x78) >>3;
-  //Tx1[sidl] = (FIXED_CAN_ID & 0x07) << 5;
 
   Tx1.id = (FIXED_CAN_ID & 0x7F) | 0b10110000000;
   Tx1.rtr = 0;
@@ -402,223 +399,268 @@ void setup() {
   // enable interrupts
   interrupts();
 
-  tft.setCursor(0, 150);
-  tft.println("Commencing Operation");
+  //tft.setCursor(0, 150);
+  //tft.println("Commencing Operation");
   splashScreen();
+  //currentScreen = Main;
   delay(3000);
+
+  //unsigned char i;
+  LEDCanActTimer = 0;
+  
+  
+  // Initial power off on main track
+  op_flags.op_pwr_m = 0;
+
+  for (i = 0; i < 5; i++) {
+      Tx1.buf[0] = OPC_ARST;
+      can_tx(1);
+  }
+
+  mode_word.analog_en = 1;
+  mode_word.dispatch_active = 1;
+  initScreenCurrent();
+  currentScreen = Main;
+  SWAP_OP = 0;
+  swapButton();
+  settingsButton();
 
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-    unsigned char i;
-    LEDCanActTimer = 0;
-    
-    
-    // Initial power off on main track
-    op_flags.op_pwr_m = 0;
 
-    //trackOffMessage();
-
-    for (i = 0; i < 5; i++) {
-        Tx1.buf[0] = OPC_ARST;
-        can_tx(1);
-    }
-    //power_control(OPC_RTON);
-    //PowerON = 0;
-    //railcomEnabled = 1;
-    mode_word.analog_en = 1;
-    mode_word.dispatch_active = 1;
-    initScreenCurrent();
-
-    // Loop forever
-    while (1) {
-
-      unsigned char pwr = digitalRead(PWRBUTTON);
-      pwr = !pwr; // Input is inverted.
-      SWAP_OP = digitalRead(SWAP_OP_HW);
-
-      if( pwr && !PowerTrigger && (PowerButtonTimer == 0) ) {
-        PowerTrigger = 1;
-      }
-      else if( !pwr && PowerTrigger && (PowerButtonTimer == 0)) {
-        PowerTrigger = 0;
-        PowerButtonTimer = 10000;
-        // Toggle Power.
-        if( PowerON == 1 ) {
+  boolean istouched = ts.touched();
+  if (istouched) {
+    TS_Point p = ts.getPoint();
+    if ((!wastouched) && (TouchTapTimer == 0)) {
+      if ((buttonPressed(TRACK_STAT, p)) && TRACK_STAT.active) {
+        if(stat_flags.track_on_off == 0 ) {
           power_control(OPC_RTON);
-          PowerON = 0;
-          //stat_flags.track_on_off = 0;
+          //PowerON = 1;
+          stat_flags.track_on_off = 1;
         }
         else {
           power_control(OPC_RTOF);
-          PowerON = 1;
-          //stat_flags.track_on_off = 1;
+          //PowerON = 0;
+          stat_flags.track_on_off = 0;
         }
       }
 
-
-        if (dcc_flags.dcc_overload) {
-            // Programming overload
-            dcc_flags.dcc_overload = 0;
-      digitalWriteFast(OVERLOAD_PIN, 0);
-        } else {
-            if (SWAP_OP == 0) {
-                // Low power booster mode
-          if (dcc_flags.dcc_retry) {
-                    // Turn power back on after retry
-            dcc_flags.dcc_retry = 0;
-                    op_flags.op_pwr_m = 1;
-          digitalWriteFast(OVERLOAD_PIN, 0);
-          }
-            }
-    }
-
-        if (((dcc_flags.dcc_reading) || (dcc_flags.dcc_writing))
-            && (dcc_flags.dcc_rdy_s == 1)) {
-            // iterate service mode state machine
-            cv_sm();
+      else if ((buttonPressed(RAIL_COM, p)) && RAIL_COM.active) {
+        if(railcomEnabled == 0) {
+          railcom_control(OPC_RTON);
+          //PowerON = 1;
+          railcomEnabled = 1;
         }
-
-        if (dcc_flags.dcc_rdy_m) {
-            // Main track output is ready for next packet
-            packet_gen();
+        else {
+          railcom_control(OPC_RTOF);
+          //PowerON = 0;
+          railcomEnabled = 0;
+          
         }
+      }
 
-        // Check for Rx packet and setup pointer to it
-        if (ecan_fifo_empty() == 0) {
-            // Decode the new command
-            LEDCanActTimer = 2000;
-            digitalWriteFast(LEDCANACT, 1);
-            parse_cmd();
+      else if ((buttonPressed(SWAP_BOX, p)) && SWAP_BOX.active) {
+        if(SWAP_OP == 0 ) {
+          SWAP_OP = 1;
+          swapButton();
         }
+        else {
+          SWAP_OP = 0;
+          swapButton();
+        }
+      }
 
-        //digitalWriteFast(LEDCANACT, q_queue[1].status.valid);
+      else if ((buttonPressed(SETTINGS_BOX, p)) && SETTINGS_BOX.active) {
+        settingsPage();
+        currentScreen = Settings;
+      }
 
-        // Handle slot & service mode timeout and beeps every half second
-        if (op_flags.slot_timer) {
-          //shouldnt need to deactivate interrupts as this will only run when it detects the slot timer bit which is triggered by the interrupt routine anyway
-          //noInterrupts();
-          ch1Current = (ave*0.0008);
-          //interrupts();
+      else if ((buttonPressed(RETURN_BOX, p)) && RETURN_BOX.active) {
+        mainPage();
+        currentScreen = Main;
+      }
 
-          
-          if(mode_word.inactive_timeout || mode_word.active_timeout || mode_word.dispatch_active) {
-            for (i = 0; i < MAX_HANDLES; i++) {
-              if (((q_queue[i].speed & 0x7F) == 0) && (q_queue[i].timeout > 0) && (mode_word.inactive_timeout) && (inactiveTimeout > 0)) {
-                q_queue[i].timeout = constrain(q_queue[i].timeout, 0, inactiveTimeout); //If using the inactive timeout then if the loco is stopped start the timer
-                --q_queue[i].timeout;
-                if ((q_queue[i].status.valid) && ((q_queue[i].timeout) < 40)) {
-                  q_queue[i].status.valid = 0;
-                  //rx_ptr.buf[1] = i;
-                  //purge_session();
-                }
-                
-                if (q_queue[i].timeout == 0) {
-                  //q_queue[i].status.valid = 0;
-                  rx_ptr.buf[1] = i;
-                  purge_session();
-                }
-                
-              }
-              else if (((q_queue[i].speed & 0x7F) != 0) && (q_queue[i].timeout > 0) && (mode_word.active_timeout) && (activeTimeout > 0)) {
-                --q_queue[i].timeout;
-                //If this is in the dispatch queue just put its timeout back to the active one
-                if (d_queue[i].status.valid) {
-                  q_queue[i].timeout = activeTimeout;
-                }
-                               
-                if (q_queue[i].timeout == 0) {
-                  //set loco speed to 0 then purge session
-                  rx_ptr.buf[0] = OPC_DSPD;
-                  rx_ptr.buf[1] = i;
-                  if (mode_word.active_timeout_mode) rx_ptr.buf[2] = 1; //If the active timeout bit is set to 1, do an estop
-                  else rx_ptr.buf[2] = 0;  //if not, do a controlled stop, not an estop
-                  queue_update();
-                  purge_session();
-                }
-              }
-              //check the dispatch queue for timeouts
-              if ((d_queue[i].status.valid) && (d_queue[i].timeout > 0) && (mode_word.dispatch_active)) {
-                --d_queue[i].timeout;
-                               
-                if (d_queue[i].timeout == 0) {
-                  //set loco speed to 0 then purge session
-                  rx_ptr.buf[0] = OPC_DSPD;
-                  rx_ptr.buf[1] = i;
-                  rx_ptr.buf[2] = 0;  //if not, do a controlled stop, not an estop
-                  queue_update();
-                  rx_ptr.buf[1] = i;
-                  purge_session();
-                  purge_dispatch(i);  //remove session from dispatch
-                }
-              }
-            }
-          }
-          
-
-          if (BeepCount > 0) {
-            op_flags.beeping = !op_flags.beeping;
-            digitalWriteFast(AWD, (op_flags.beeping || (retry_delay > 0)));
-            if (op_flags.beeping) {
-              BeepCount--;
-            }
-          }
-          else {
-            op_flags.beeping = 0;
-              if (retry_delay == 0) {
-              digitalWriteFast(AWD, 0);
-            }
-          }
-    
-    
-          /*
-          tft.fillRect(188, 60+50, 85, 40, ILI9341_WHITE);
-          tft.setTextColor(ILI9341_BLACK);
-          tft.setCursor(188 + 3, 60 + 50);
-          tft.print(q_queue[1].timeout);
-          */
-    
-          if(noOfSessions != last_noOfSessions)
-          {
-            updateSessions();
-          }
-          if(digitalRead(OVERLOAD_PIN)&(!lastOverload)){
-            overloadDisplay();
-            lastOverload = 1;
-          }
-          if((!digitalRead(OVERLOAD_PIN))&(lastOverload))
-          {
-            initScreenCurrent();
-            lastOverload = 0;
-          }
-          if((ch1Current != last_ch1Current) & !lastOverload)
-          {
-            updateScreenCurrent();
-          }
-          
-          last_ch1Current = ch1Current;
       
-          op_flags.slot_timer = 0;
-        }  // slot timer flag set
+      TouchTapTimer = 10000;
     }
-    /*
-    if (ts.touched()) {
-      TS_Point p = ts.getPoint();
-      Serial.print("Pressure = ");
-      Serial.print(p.z);
-      Serial.print(", x = ");
-      Serial.print(p.x);
-      Serial.print(", y = ");
-      Serial.print(p.y);
-      //delay(30);
-      Serial.println();
+  }
+  wastouched = istouched;
+
+    /*if( pwr && !PowerTrigger && (TouchTapTimer == 0) ) {
+      PowerTrigger = 1;
+    }
+    else if( !pwr && PowerTrigger && (TouchTapTimer == 0)) {
+      PowerTrigger = 0;
+      TouchTapTimer = 10000;
+      // Toggle Power.
+      if( PowerON == 0 ) {
+        power_control(OPC_RTON);
+        PowerON = 1;
+        //stat_flags.track_on_off = 0;
+      }
+      else {
+        power_control(OPC_RTOF);
+        PowerON = 0;
+        //stat_flags.track_on_off = 1;
+      }
     }
     */
 
+
+      if (dcc_flags.dcc_overload) {
+          // Programming overload
+          dcc_flags.dcc_overload = 0;
+    digitalWriteFast(OVERLOAD_PIN, 0);
+      } else {
+          if (SWAP_OP == 0) {
+              // Low power booster mode
+        if (dcc_flags.dcc_retry) {
+                  // Turn power back on after retry
+          dcc_flags.dcc_retry = 0;
+                  op_flags.op_pwr_m = 1;
+        digitalWriteFast(OVERLOAD_PIN, 0);
+        }
+          }
+  }
+
+      if (((dcc_flags.dcc_reading) || (dcc_flags.dcc_writing))
+          && (dcc_flags.dcc_rdy_s == 1)) {
+          // iterate service mode state machine
+          cv_sm();
+      }
+
+      if (dcc_flags.dcc_rdy_m) {
+          // Main track output is ready for next packet
+          packet_gen();
+      }
+
+      // Check for Rx packet and setup pointer to it
+      if (ecan_fifo_empty() == 0) {
+          // Decode the new command
+          LEDCanActTimer = 2000;
+          digitalWriteFast(LEDCANACT, 1);
+          parse_cmd();
+      }
+
+      //digitalWriteFast(LEDCANACT, q_queue[1].status.valid);
+
+      // Handle slot & service mode timeout and beeps every half second
+      if (op_flags.slot_timer) {
+        //shouldnt need to deactivate interrupts as this will only run when it detects the slot timer bit which is triggered by the interrupt routine anyway
+        //noInterrupts();
+        ch1Current = (ave*0.0008);
+        //interrupts();
+
+        
+        if(mode_word.inactive_timeout || mode_word.active_timeout || mode_word.dispatch_active) {
+          for (i = 0; i < MAX_HANDLES; i++) {
+            //decrement the inactive timeout if required
+            if (((q_queue[i].speed & 0x7F) == 0) && (q_queue[i].timeout > 0) && (mode_word.inactive_timeout) && (inactiveTimeout > 0)) {
+              q_queue[i].timeout = constrain(q_queue[i].timeout, 0, inactiveTimeout); //If using the inactive timeout then if the loco is stopped start the timer
+              --q_queue[i].timeout;
+              if ((q_queue[i].status.valid) && ((q_queue[i].timeout) < 40)) {
+                q_queue[i].status.valid = 0;
+                //rx_ptr.buf[1] = i;
+                //purge_session();
+              }
+              if (q_queue[i].timeout == 0) {
+                //q_queue[i].status.valid = 0;
+                //rx_ptr.buf[1] = i;
+                purge_session(i);
+              }
+            }
+            
+            //decrement the active timeout if required
+            if (((q_queue[i].speed & 0x7F) != 0) && (q_queue[i].timeout > 0) && (mode_word.active_timeout) && (activeTimeout > 0)) {
+              --q_queue[i].timeout;
+              //If this is in the dispatch queue just put its timeout back to the active one
+              if (d_queue[i].status.valid) {
+                q_queue[i].timeout = activeTimeout;
+              }            
+              if (q_queue[i].timeout == 0) {
+                //set loco speed to 0 then purge session
+                rx_ptr.buf[0] = OPC_DSPD;
+                rx_ptr.buf[1] = i;
+                if (mode_word.active_timeout_mode) rx_ptr.buf[2] = 1; //If the active timeout mode bit is set to 1, do an estop
+                else rx_ptr.buf[2] = 0;  //if not, do a controlled stop, not an estop
+                queue_update();
+                purge_session(i);
+              }
+            }
+            
+            //check the dispatch queue for timeouts
+            if ((d_queue[i].status.valid) && (d_queue[i].timeout > 0) && (mode_word.dispatch_active)) {
+              --d_queue[i].timeout;
+                             
+              if (d_queue[i].timeout == 0) {
+                //set loco speed to 0 then purge session
+                rx_ptr.buf[0] = OPC_DSPD;
+                rx_ptr.buf[1] = i;
+                rx_ptr.buf[2] = 0;  //if not, do a controlled stop, not an estop
+                queue_update();
+                rx_ptr.buf[1] = i;
+                purge_session(i);
+                purge_dispatch(i);  //remove session from dispatch
+              }
+            }
+          }
+        }
+        
+
+        if (BeepCount > 0) {
+          op_flags.beeping = !op_flags.beeping;
+          digitalWriteFast(AWD, (op_flags.beeping || (retry_delay > 0)));
+          if (op_flags.beeping) {
+            BeepCount--;
+          }
+        }
+        else {
+          op_flags.beeping = 0;
+            if (retry_delay == 0) {
+            digitalWriteFast(AWD, 0);
+          }
+        }
+  
+  
+        /*
+        tft.fillRect(188, 60+50, 85, 40, ILI9341_WHITE);
+        tft.setTextColor(ILI9341_BLACK);
+        tft.setCursor(188 + 3, 60 + 50);
+        tft.print(q_queue[1].timeout);
+        */
+        
+        if((noOfSessions != last_noOfSessions) && (SESSIONS_BOX.active))
+        {
+          updateSessions();
+        }
+        if(digitalRead(OVERLOAD_PIN) && (!lastOverload)){
+          overloadDisplay();
+          lastOverload = 1;
+        }
+        if((!digitalRead(OVERLOAD_PIN)) && (lastOverload))
+        {
+          if (currentScreen == Main) {
+            mainPage();
+          }
+          else if (currentScreen == Settings) {
+            settingsPage();
+          }
+            
+          lastOverload = 0;
+        }
+        if((ch1Current != last_ch1Current) && (!lastOverload) && (CURRENT_BOX.active))
+        {
+          updateScreenCurrent();
+        }
+        
+        last_ch1Current = ch1Current;
     
-
-
+        op_flags.slot_timer = 0;
+      }  // slot timer flag set
+  
+  
 }
 
 FASTRUN void railComInit(){
@@ -682,5 +724,7 @@ FASTRUN void railComCh2End(){
       //digitalWriteFast(LEDCANACT, 0);
       */
 }
+
+
 
 

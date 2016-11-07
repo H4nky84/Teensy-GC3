@@ -124,9 +124,9 @@ void cv_sm(void) {
                 dcc_flags.dcc_ack = 0;
                 dcc_flags.dcc_cv_no_ack = 0;
                 dcc_flags.dcc_rec_time = 0;
-				digitalWriteFast(OVERLOAD_PIN, 0);
-				// ACK_PIN = 0;
-				//DCC_PKT_PIN = 0;
+				        digitalWriteFast(OVERLOAD_PIN, 0);
+				        // ACK_PIN = 0;
+				        //DCC_PKT_PIN = 0;
                 // send reset packets for 250ms delay after power up
                 packet_reset(14);
                 prog_state = CV_PON1;
@@ -140,7 +140,7 @@ void cv_sm(void) {
 	            if (iccq > I_OVERLOAD) {
 	                op_flags.op_pwr_s = 0;
 	                dcc_flags.dcc_overload = 1;
-					digitalWriteFast(OVERLOAD_PIN, 1);
+					        digitalWriteFast(OVERLOAD_PIN, 1);
 	                print_ack();
 	                dcc_flags.dcc_reading = 0;
 	                dcc_flags.dcc_writing = 0;
@@ -150,8 +150,8 @@ void cv_sm(void) {
 	            // continue power up time
 	            dcc_flags.dcc_check_ovld = 1;
 	            dcc_flags.dcc_check_ack = 1;
-                // reset spare pin from ack detected (for scope monitoring)
-				// ACK_PIN = 0;
+              // reset spare pin from ack detected (for scope monitoring)
+				      // ACK_PIN = 0;
 	            // Longer delay required for QSI locos
 	            packet_reset(21);
 	            prog_state = CV_CHECK_OVLD;

@@ -2,94 +2,16 @@
 //#include <Adafruit_STMPE610.h>
 
 // This is calibration data for the raw touch data to the screen coordinates
-#define TS_MINX 150
-#define TS_MINY 130
-#define TS_MAXX 3800
-#define TS_MAXY 4000
-
+#define TS_MINX 3700
+#define TS_MINY 3700
+#define TS_MAXX 350
+#define TS_MAXY 400
 
 boolean RecordOn = false;
 
-//#define FRAME_X 210
-//#define FRAME_Y 180
-//#define FRAME_W 100
-//#define FRAME_H 50
-
-#define FRAME_X 100
-#define FRAME_Y 100
-#define FRAME_W 100
-#define FRAME_H 50
-
-#define REDBUTTON_X FRAME_X
-#define REDBUTTON_Y FRAME_Y
-#define REDBUTTON_W (FRAME_W/2)
-#define REDBUTTON_H FRAME_H
-
-#define TRACK_STAT_X 80
-#define TRACK_STAT_Y 160
-#define TRACK_STAT_W 140
-#define TRACK_STAT_H 60
-#define TRACK_STAT_R 8
-
-
-
-#define RAIL_COM_X 280
-#define RAIL_COM_Y 200
-#define RAIL_COM_W 30
-#define RAIL_COM_H 30
-#define RAIL_COM_R 4
-
-#define GREENBUTTON_X (REDBUTTON_X + REDBUTTON_W)
-#define GREENBUTTON_Y FRAME_Y
-#define GREENBUTTON_W (FRAME_W/2)
-#define GREENBUTTON_H FRAME_H
-
-struct rectangle{
-  unsigned int X;
-  unsigned int Y;
-  unsigned int W;
-  unsigned int H;
-};
-
-rectangle TRACK_STAT = {80, 160, 140, 60};
-rectangle RAIL_COM = {280, 200, 30, 30};
-rectangle CURRENT_FRAME = {7, 50, 306, 60};
-rectangle CURRENT_BOX = {188, 60, 85, 40};
-rectangle SESSIONS_BOX = {90, 10, 85, 40};
-
-
-void drawFrame()
-{
-  tft.drawRect(FRAME_X, FRAME_Y, FRAME_W, FRAME_H, ILI9341_BLACK);
-}
-
-void redBtn()
-{ 
-  tft.fillRect(REDBUTTON_X, REDBUTTON_Y, REDBUTTON_W, REDBUTTON_H, ILI9341_RED);
-  tft.fillRect(GREENBUTTON_X, GREENBUTTON_Y, GREENBUTTON_W, GREENBUTTON_H, ILI9341_BLUE);
-  drawFrame();
-  tft.setCursor(GREENBUTTON_X + 8 , GREENBUTTON_Y + (REDBUTTON_H/3));
-  tft.setTextColor(ILI9341_WHITE);
-  tft.setTextSize(2);
-  tft.println("ON");
-  RecordOn = false;
-}
-
-void greenBtn()
-{
-  tft.fillRect(GREENBUTTON_X, GREENBUTTON_Y, GREENBUTTON_W, GREENBUTTON_H, ILI9341_GREEN);
-  tft.fillRect(REDBUTTON_X, REDBUTTON_Y, REDBUTTON_W, REDBUTTON_H, ILI9341_BLUE);
-  drawFrame();
-  tft.setCursor(REDBUTTON_X + 6 , REDBUTTON_Y + (REDBUTTON_H/2));
-  tft.setTextColor(ILI9341_WHITE);
-  tft.setTextSize(2);
-  tft.println("OFF");
-  RecordOn = true;
-}
-
 void trackOffMessage()
 {
-  tft.fillRoundRect(TRACK_STAT.X+2, TRACK_STAT.Y+2, TRACK_STAT.W, TRACK_STAT.H, 8, ILI9341_BLACK);
+  tft.fillRoundRect(TRACK_STAT.X+2, TRACK_STAT.Y+2, TRACK_STAT.W, TRACK_STAT.H, 8, BACKGROUND);
   tft.fillRoundRect(TRACK_STAT.X, TRACK_STAT.Y, TRACK_STAT.W, TRACK_STAT.H, 8, ILI9341_RED);
   tft.drawRoundRect(TRACK_STAT.X, TRACK_STAT.Y, TRACK_STAT.W, TRACK_STAT.H, 8, ILI9341_BLACK);
   tft.setCursor(TRACK_STAT.X+6, TRACK_STAT.Y+22);
@@ -156,7 +78,7 @@ void updateScreenCurrent(){
   tft.print(ch1Current);
   tft.print(" A");
   railComIcon();
-  analogIcon();
+  //analogIcon();
 }
 
 
@@ -175,6 +97,67 @@ void railComIcon()
     railcomDisplay_active = 0;
   }
   
+}
+
+void swapButton()
+{
+  if(SWAP_OP){
+  tft.fillRoundRect(SWAP_BOX.X+2, SWAP_BOX.Y+2, SWAP_BOX.W, SWAP_BOX.H, 4, ILI9341_BLACK);
+  tft.fillRoundRect(SWAP_BOX.X, SWAP_BOX.Y, SWAP_BOX.W, SWAP_BOX.H, 4, ILI9341_LIGHTGREY);
+  tft.drawRoundRect(SWAP_BOX.X, SWAP_BOX.Y, SWAP_BOX.W, SWAP_BOX.H, 4, ILI9341_BLACK);
+  tft.setCursor(SWAP_BOX.X+7, SWAP_BOX.Y+7);
+  tft.setTextColor(ILI9341_BLACK);
+  tft.setFont(Arial_16);
+  tft.println("S");
+  tft.setCursor(SWAP_BOX.X+5, SWAP_BOX.Y+2);
+  tft.setTextColor(ILI9341_BLACK);
+  tft.setFont(AwesomeF080_40);
+  tft.print((char)45);
+  tft.setCursor(SWAP_BOX.X+3, SWAP_BOX.Y);
+  tft.setTextColor(ILI9341_DARKGREY);
+  //tft.setFont(AwesomeF080_40);
+  tft.print((char)45);
+  } else{
+    tft.fillRoundRect(SWAP_BOX.X+2, SWAP_BOX.Y+2, SWAP_BOX.W, SWAP_BOX.H, 4, BACKGROUND);
+    tft.fillRoundRect(SWAP_BOX.X, SWAP_BOX.Y, SWAP_BOX.W, SWAP_BOX.H, 4, ILI9341_WHITE);
+    tft.drawRoundRect(SWAP_BOX.X, SWAP_BOX.Y, SWAP_BOX.W, SWAP_BOX.H, 4, ILI9341_BLACK);
+    tft.setCursor(SWAP_BOX.X+3, SWAP_BOX.Y);
+    tft.setTextColor(ILI9341_LIGHTGREY);
+    tft.setFont(AwesomeF080_40);
+    tft.print((char)45);
+    
+  }
+  
+}
+
+void settingsButton()
+{
+  //tft.fillRoundRect(SETTINGS_BOX.X+2, SETTINGS_BOX.Y+2, SETTINGS_BOX.W, SETTINGS_BOX.H, 4, ILI9341_BLACK);
+  tft.fillRoundRect(SETTINGS_BOX.X, SETTINGS_BOX.Y, SETTINGS_BOX.W, SETTINGS_BOX.H, 4, ILI9341_WHITE);
+  tft.drawRoundRect(SETTINGS_BOX.X, SETTINGS_BOX.Y, SETTINGS_BOX.W, SETTINGS_BOX.H, 4, ILI9341_BLACK);
+  tft.setCursor(SETTINGS_BOX.X+8, SETTINGS_BOX.Y+8);
+  tft.setTextColor(ILI9341_BLACK);
+  tft.setFont(AwesomeF080_32);
+  tft.print((char)5);
+  tft.setCursor(SETTINGS_BOX.X+7, SETTINGS_BOX.Y+7);
+  tft.setTextColor(ILI9341_DARKGREY);
+  //tft.setFont(AwesomeF080_32);
+  tft.print((char)5);
+}
+
+void returnButton()
+{
+  //tft.fillRoundRect(SETTINGS_BOX.X+2, SETTINGS_BOX.Y+2, SETTINGS_BOX.W, SETTINGS_BOX.H, 4, ILI9341_BLACK);
+  tft.fillRoundRect(SETTINGS_BOX.X, SETTINGS_BOX.Y, SETTINGS_BOX.W, SETTINGS_BOX.H, 4, ILI9341_WHITE);
+  tft.drawRoundRect(SETTINGS_BOX.X, SETTINGS_BOX.Y, SETTINGS_BOX.W, SETTINGS_BOX.H, 4, ILI9341_BLACK);
+  tft.setCursor(SETTINGS_BOX.X+3, SETTINGS_BOX.Y+3);
+  tft.setTextColor(ILI9341_BLACK);
+  tft.setFont(AwesomeF000_40);
+  tft.print((char)100);
+  tft.setCursor(SETTINGS_BOX.X+2, SETTINGS_BOX.Y+2);
+  tft.setTextColor(ILI9341_DARKGREY);
+  //tft.setFont(AwesomeF000_40);
+  tft.print((char)100);
 }
 
 void overloadDisplay(){
@@ -200,43 +183,6 @@ void updateSessions(){
   last_noOfSessions = noOfSessions;
 }
 
-void initScreen()
-{
-  // See if there's any  touch data for us
-  if (!ts.bufferEmpty())
-  {   
-    // Retrieve a point  
-    TS_Point p = ts.getPoint(); 
-    // Scale using the calibration #'s
-    // and rotate coordinate system
-    p.x = map(p.x, TS_MINY, TS_MAXY, 0, tft.height());
-    p.y = map(p.y, TS_MINX, TS_MAXX, 0, tft.width());
-    int y = tft.height() - p.x;
-    int x = p.y;
-
-    if (RecordOn)
-    {
-      if((x > REDBUTTON_X) && (x < (REDBUTTON_X + REDBUTTON_W))) {
-        if ((y > REDBUTTON_Y) && (y <= (REDBUTTON_Y + REDBUTTON_H))) {
-          Serial.println("Red btn hit"); 
-          redBtn();
-        }
-      }
-    }
-    else //Record is off (RecordOn == false)
-    {
-      if((x > GREENBUTTON_X) && (x < (GREENBUTTON_X + GREENBUTTON_W))) {
-        if ((y > GREENBUTTON_Y) && (y <= (GREENBUTTON_Y + GREENBUTTON_H))) {
-          Serial.println("Green btn hit"); 
-          greenBtn();
-        }
-      }
-    }
-
-    Serial.println(RecordOn);
-  }  
-}
-
 void analogIcon()
 {
   if(analogOperationActive){
@@ -250,6 +196,64 @@ void analogIcon()
     tft.fillRect(RAIL_COM.X, RAIL_COM.Y, RAIL_COM.W, RAIL_COM.H, BACKGROUND);
     railcomDisplay_active = 0;
   }
+  
+}
+
+TS_Point scaleTouch(TS_Point point, unsigned minX, unsigned maxX, unsigned minY, unsigned maxY) {
+  TS_Point temp = point;
+  temp.x = map(point.x, minX, maxX, 0, 320);
+  temp.y = map(point.y, minY, maxY, 0, 240);
+  return temp;
+}
+
+boolean pressed(unsigned int numx, unsigned int numy, unsigned int lowerx, unsigned int upperx, unsigned int lowery, unsigned int uppery) {
+  if ((lowerx < numx) && (numx < upperx) && (lowery < numy) && (numy < uppery)) {
+    return 1;
+  } else return 0; 
+}
+
+int buttonPressed(rectangle box, TS_Point touch) {
+  TS_Point tempTouch;
+  tempTouch = scaleTouch(touch, TS_MINX, TS_MAXX, TS_MINY, TS_MAXY);
+  if ((box.X < tempTouch.x) && (tempTouch.x < (box.X + box.W)) && (box.Y < tempTouch.y) && (tempTouch.y < (box.Y + box.H))) {
+    return 1;
+  } else return 0; 
+}
+
+void settingsPage()
+{
+  tft.fillScreen(BACKGROUND);
+  tft.setCursor(90, 10);
+  tft.setTextColor(ILI9341_BLACK);
+  tft.setFont(Arial_28);
+  tft.print("Settings");
+  CURRENT_FRAME.active = 0;
+  CURRENT_BOX.active = 0;
+  SESSIONS_BOX.active = 0;
+  TRACK_STAT.active = 0;
+  RAIL_COM.active = 1;
+  SETTINGS_BOX.active = 0;
+  SWAP_BOX.active = 0;
+  
+  returnButton();
+  railComIcon();
+  RETURN_BOX.active = 1;
+}
+
+void mainPage()
+{
+  tft.fillScreen(BACKGROUND);
+  RETURN_BOX.active = 0;
+  CURRENT_FRAME.active = 1;
+  CURRENT_BOX.active = 1;
+  SESSIONS_BOX.active = 1;
+  TRACK_STAT.active = 1;
+  RAIL_COM.active = 0;
+  SETTINGS_BOX.active = 1;
+  SWAP_BOX.active = 1;
+  initScreenCurrent();
+  swapButton();
+  settingsButton();
   
 }
 
