@@ -131,9 +131,15 @@ FASTRUN void isr_high(void) {
           // J7 is in
           // On board booster is main track output
           if (op_flags.op_pwr_m) {
+            if(railCom_active){
+              digitalWriteFast(DCC_EN, 1);
+              digitalWriteFast(DCC_POS, 1);
+              digitalWriteFast(DCC_NEG, 1);
+            } else{
               digitalWriteFast(DCC_EN, 1);
               digitalWriteFast(DCC_NEG, !op_flags.op_bit_m);
               digitalWriteFast(DCC_POS, op_flags.op_bit_m);
+            }
           } else {
               digitalWriteFast(DCC_EN, 0);
               digitalWriteFast(DCC_POS, 0);
@@ -172,20 +178,12 @@ FASTRUN void isr_high(void) {
         // J7 is out
         // On-board booster is service mode output
         // LED1 flashes during programming
-        if (op_flags.op_pwr_s) {
-            digitalWriteFast(LED1, 1);
-        } else {
-            digitalWriteFast(LED1, 0);
-        }
+        digitalWriteFast(LED1, op_flags.op_pwr_s);
     } else {
         // J7 is in
         // On board booster is main track output
         // LED2 normall on, off during overload
-        if (op_flags.op_pwr_m) {
-            digitalWriteFast(LED1, 1);
-        } else {
-            digitalWriteFast(LED1, 0);
-        }
+        digitalWriteFast(LED1, op_flags.op_pwr_m);
    }
     
     digitalWriteFast(LED2, 1);

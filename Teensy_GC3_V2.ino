@@ -8,7 +8,6 @@
 
 #include <FlexCAN.h>
 #include <EEPROM.h>
-//#include <Metro.h>
 
 #include <SPI.h>
 #include <ILI9341_t3.h>
@@ -17,7 +16,7 @@
 #include "merg_logo.c"
 #include "pjrc_logo.c"
 
-// Use hardware SPI (on Uno, #13, #12, #11) and the above for CS/DC
+// Use hardware SPI with SCK set to pin 14
 
 // For optimized ILI9341_t3 library
 #define TFT_DC      9
@@ -34,8 +33,12 @@ XPT2046_Touchscreen ts(CS_PIN, 6);
 //touchscreen x values go from 3700 (left hand side) to 350 (right hand side)
 // touchscreen y values go from  3700 (top) to 400 (bottom)
 
-FlexCAN CANbus(125000, 2);
-//Metro screenCurrentMetro = Metro(1000); 
+#ifdef __MK66FX1M0__
+  FlexCAN CANbus(125000, 2);
+#else
+  FlexCAN CANbus(125000, 0);
+#endif
+
 
 IntervalTimer dccBit;
 IntervalTimer railcomDelay;
@@ -74,7 +77,6 @@ CAN_message_t Tx1, rx_ptr, TXB0;
 #define MAGIC 93
 
 #define BACKGROUND ILI9341_WHITE
-
 
 //
 // Flags register used for DCC packet transmission
@@ -156,8 +158,6 @@ volatile union statflags_t{
 //
 //
 volatile unsigned char ovld_delay;
-//extern volatile unsigned char dcc_buff_s[7];
-//extern volatile unsigned char dcc_buff_m[7];
 volatile uint16_t imax;    // Booster mode current limit
 unsigned char ad_state;             // A/D state machine
 volatile uint16_t iccq;               // Quiescent decoder current
@@ -172,7 +172,6 @@ unsigned char PowerTrigger;
 unsigned char PowerON;
 unsigned short PowerButtonTimer;
 unsigned int TouchTapTimer;
-//extern const unsigned char params[7];
 volatile boolean railCom_active;
 volatile byte RailCom_CH1_data[2];
 volatile byte RailCom_CH2_data[6];
@@ -189,7 +188,7 @@ uint16_t activeTimeout;
 uint16_t dispatchTimeout;
 boolean analogOperationActive = 0;
 boolean railcomEnabled = 0;
-boolean SWAP_OP;  //status of the swap aoutput function
+boolean SWAP_OP;  //status of the swap output function, basically turns the 1st booster into service mode
 uint16_t ch1Current_readings[CIRCBUFFERSIZE];    //array for ring buffer of current readings
 uint16_t ch2Current_readings[CIRCBUFFERSIZE];
 unsigned char ch1Current_idx = 0;     //indexes for ring buffers
@@ -243,7 +242,7 @@ void setup() {
 
   //tft.fillScreen(ILI9341_BLACK);
   
-  pinMode(SWAP_OP_HW, INPUT);
+  //pinMode(SWAP_OP_HW, INPUT);
   //pinMode(PWRBUTTON, INPUT_PULLUP);
   pinMode(LEDCANACT, OUTPUT);
   pinMode(DCC_EN, OUTPUT);
@@ -670,6 +669,10 @@ FASTRUN void railComInit(){
    railCom_active = 1;
    digitalWriteFast(DCC_OUT_POS, 1);
    digitalWriteFast(DCC_OUT_NEG, 1);
+   if (SWAP_OP == 0) {
+    digitalWriteFast(DCC_POS, 1);
+    digitalWriteFast(DCC_NEG, 1);
+   }
    railcomCh1Delay.begin(railComCh1Start, 47); //begin railcom channel 1 delay timer with period of 47 us
    railcomCh1Delay.priority(0);  //Set interrupt priority for bit timing to 0 (highest)
    
