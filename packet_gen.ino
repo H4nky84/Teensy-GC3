@@ -153,57 +153,62 @@ void packet_gen(void) {
 void queue_add() {
 	unsigned char i, free_handle, err;
 	unsigned int addr = ((unsigned int)rx_ptr.buf[1]<<8) | rx_ptr.buf[2];
-    // Ignore attempts to use address 0 unless analog operation is available
-    if (addr == 0xC000) {
-      if ((mode_word.analog_en) && (noOfSessions == 0) && (SWAP_OP == 0)) {
-        //turn off railcom operaiton and enable analog operation
-        railcomEnabled = 0;
-        analogOperationActive = 1;
-        // free_handle is the handle of available entry
-        // Initialise the entry
-        q_queue[0].address.addr_int = addr;
-        // Ensure correct DCC address format
-        q_queue[0].address.addr_hi.long0 = q_queue[0].address.addr_hi.long1;
-        q_queue[0].status.valid = 1;
-        // Report to cab
-        Tx1.buf[0] = OPC_PLOC;
-        Tx1.buf[1] = 0;
-        Tx1.buf[2] = rx_ptr.buf[1];
-        Tx1.buf[3] = rx_ptr.buf[2];
-        Tx1.buf[4] = q_queue[0].speed;
-        Tx1.buf[5] = q_queue[0].fn1;
-        Tx1.buf[6] = q_queue[0].fn2;
-        Tx1.buf[7] = q_queue[0].fn2a;
-        can_tx(8);
-        noOfSessions ++;
-        analogIcon();
-      }
-      //not valid for any other situation
-        return;
+  // Ignore attempts to use address 0 unless analog operation is available
+  if (addr == 0xC000) {
+    if ((mode_word.analog_en) && (noOfSessions == 0) && (SWAP_OP == 0)) {
+      //turn off railcom operaiton and enable analog operation
+      railcomEnabled = 0;
+      analogOperationActive = 1;
+      // free_handle is the handle of available entry
+      // Initialise the entry
+      q_queue[0].address.addr_int = addr;
+      // Ensure correct DCC address format
+      q_queue[0].address.addr_hi.long0 = q_queue[0].address.addr_hi.long1;
+      q_queue[0].status.valid = 1;
+      // Report to cab
+      Tx1.buf[0] = OPC_PLOC;
+      Tx1.buf[1] = 0;
+      Tx1.buf[2] = rx_ptr.buf[1];
+      Tx1.buf[3] = rx_ptr.buf[2];
+      Tx1.buf[4] = q_queue[0].speed;
+      Tx1.buf[5] = q_queue[0].fn1;
+      Tx1.buf[6] = q_queue[0].fn2;
+      Tx1.buf[7] = q_queue[0].fn2a;
+      can_tx(8);
+      noOfSessions ++;
+      analogIcon();
     }
-	// Find free entry or match address
-    free_handle = 255;
-	  i = 0;
-    err = ERR_LOCO_STACK_FULL;
-	while (i < MAX_HANDLES) {
-        if ((q_queue[i].status.valid == 0) && (free_handle == 255)) {
-            // Found first free entry, save it for later
-            free_handle = i;
-            err = 0;
-        } else if (q_queue[i].address.addr_int == addr) {
-            // Found same address in valid slot - error
-            err = ERR_LOCO_ADDR_TAKEN;
-            //check to see fi this loco is in the dispatch queue
-            if (d_queue[i].status.valid) {
-              err = 0xFF; //set the error code to 255 (undefined in standard)
-              purge_dispatch(i);  //remove from the dispatch queue as it has been taken over by a real cab
-              //return the slot index for use by that cab
-            }
-            
-            break;
+    //not valid for any other situation
+    return;
+  }
+  
+  // Find free entry or match address
+  free_handle = 255;
+  i = 0;
+  err = ERR_LOCO_STACK_FULL;
+  while (i < MAX_HANDLES) {
+    if ((q_queue[i].status.valid == 0) && (free_handle == 255)) {
+        // Found first free entry, save it for later
+        free_handle = i;
+        err = 0;
+    } else if (q_queue[i].address.addr_int == addr) {
+        // Found same address in valid slot - error
+        err = ERR_LOCO_ADDR_TAKEN;
+        //check to see fi this loco is in the dispatch queue
+        if (d_queue[i].status.valid) {
+          err = 0xFF; //set the error code to 255 (undefined in standard)
+          purge_dispatch(i);  //remove from the dispatch queue as it has been taken over by a real cab
+          //return the slot index for use by that cab
         }
-		i++;
-	}
+        break;
+    }
+    i++;
+  }
+
+  if (analogOperationActive == 1) {
+    err = ERR_LOCO_STACK_FULL;
+  }
+  
 	if (err == 0) {
 		// free_handle is the handle of available entry
     // Initialise the entry
@@ -256,13 +261,13 @@ void queue_add() {
     */
         
   } else {
-        // Report error code
-        Tx1.buf[0] = OPC_ERR;
-        Tx1.buf[1] = rx_ptr.buf[1];
-        Tx1.buf[2] = rx_ptr.buf[2];
-        Tx1.buf[3] = err;
-        can_tx(4);
-    }
+    // Report error code
+    Tx1.buf[0] = OPC_ERR;
+    Tx1.buf[1] = rx_ptr.buf[1];
+    Tx1.buf[2] = rx_ptr.buf[2];
+    Tx1.buf[3] = err;
+    can_tx(4);
+  }
 }
 
 //

@@ -4,8 +4,13 @@
 // This is calibration data for the raw touch data to the screen coordinates
 #define TS_MINX 3700
 #define TS_MINY 3700
-#define TS_MAXX 350
+#define TS_MAXX 300
 #define TS_MAXY 400
+
+//#define TS_MINX 3650
+//#define TS_MINY 3790
+//#define TS_MAXX 260
+//#define TS_MAXY 400
 
 boolean RecordOn = false;
 
@@ -148,13 +153,13 @@ void settingsButton()
 void returnButton()
 {
   //tft.fillRoundRect(SETTINGS_BOX.X+2, SETTINGS_BOX.Y+2, SETTINGS_BOX.W, SETTINGS_BOX.H, 4, ILI9341_BLACK);
-  tft.fillRoundRect(SETTINGS_BOX.X, SETTINGS_BOX.Y, SETTINGS_BOX.W, SETTINGS_BOX.H, 4, ILI9341_WHITE);
-  tft.drawRoundRect(SETTINGS_BOX.X, SETTINGS_BOX.Y, SETTINGS_BOX.W, SETTINGS_BOX.H, 4, ILI9341_BLACK);
-  tft.setCursor(SETTINGS_BOX.X+3, SETTINGS_BOX.Y+3);
+  tft.fillRoundRect(RETURN_BOX.X, RETURN_BOX.Y, RETURN_BOX.W, RETURN_BOX.H, 4, ILI9341_WHITE);
+  tft.drawRoundRect(RETURN_BOX.X, RETURN_BOX.Y, RETURN_BOX.W, RETURN_BOX.H, 4, ILI9341_BLACK);
+  tft.setCursor(RETURN_BOX.X+3, RETURN_BOX.Y+3);
   tft.setTextColor(ILI9341_BLACK);
   tft.setFont(AwesomeF000_40);
   tft.print((char)100);
-  tft.setCursor(SETTINGS_BOX.X+2, SETTINGS_BOX.Y+2);
+  tft.setCursor(RETURN_BOX.X+2, RETURN_BOX.Y+2);
   tft.setTextColor(ILI9341_DARKGREY);
   //tft.setFont(AwesomeF000_40);
   tft.print((char)100);
@@ -233,36 +238,65 @@ void settingsPage()
   tft.setFont(Arial_16);
   tft.println("Inactive Timeout");
   tft.drawRoundRect(ACTIVE_TIMEOUT.X, ACTIVE_TIMEOUT.Y, ACTIVE_TIMEOUT.W, ACTIVE_TIMEOUT.H, 8, ILI9341_BLACK);
-  tft.setCursor(ACTIVE_TIMEOUT.X+15, ACTIVE_TIMEOUT.Y+10);
+  tft.setCursor(ACTIVE_TIMEOUT.X+17, ACTIVE_TIMEOUT.Y+10);
   tft.println("Active Timeout");
   tft.drawRoundRect(DISPATCH_TIMEOUT.X, DISPATCH_TIMEOUT.Y, DISPATCH_TIMEOUT.W, DISPATCH_TIMEOUT.H, 8, ILI9341_BLACK);
-  tft.setCursor(DISPATCH_TIMEOUT.X+10, DISPATCH_TIMEOUT.Y+10);
+  tft.setCursor(DISPATCH_TIMEOUT.X+5, DISPATCH_TIMEOUT.Y+10);
   tft.println("Dispatch Timeout");
-  CURRENT_FRAME.active = 0;
-  CURRENT_BOX.active = 0;
-  SESSIONS_BOX.active = 0;
-  TRACK_STAT.active = 0;
+  tft.drawRoundRect(RAILCOM_SETTING.X, RAILCOM_SETTING.Y, RAILCOM_SETTING.W, RAILCOM_SETTING.H, 8, ILI9341_BLACK);
+  tft.setCursor(RAILCOM_SETTING.X+20, RAILCOM_SETTING.Y+7);
+  tft.println("Railcom");
+  tft.drawRoundRect(ANALOG_SETTING.X, ANALOG_SETTING.Y, ANALOG_SETTING.W, ANALOG_SETTING.H, 8, ILI9341_BLACK);
+  tft.setCursor(ANALOG_SETTING.X+20, ANALOG_SETTING.Y+10);
+  tft.println("Analog");
+  tft.drawRoundRect(CURRENT_SETTING.X, CURRENT_SETTING.Y, CURRENT_SETTING.W, CURRENT_SETTING.H, 8, ILI9341_BLACK);
+  tft.setCursor(CURRENT_SETTING.X+20, CURRENT_SETTING.Y+10);
+  tft.println("Current");
+  deactivateBoxes();
   RAIL_COM.active = 1;
-  SETTINGS_BOX.active = 0;
-  SWAP_BOX.active = 0;
   INACTIVE_TIMEOUT.active = 1;
   ACTIVE_TIMEOUT.active = 1;
   DISPATCH_TIMEOUT.active = 1;
+  ANALOG_SETTING.active = 1;
+  CURRENT_SETTING.active = 1;
   
   returnButton();
-  railComIcon();
-  RETURN_BOX.active = 1;
+  //railComIcon();
+  //RETURN_BOX.active = 1;
+}
+
+void backgroundSettingsPage()
+{
+  tft.fillScreen(ILI9341_LIGHTGREY);
+  tft.setCursor(90, 10);
+  tft.setTextColor(ILI9341_DARKGREY);
+  tft.setFont(Arial_28);
+  tft.print("Settings");
+  tft.setFont(Arial_16);
+  tft.drawRoundRect(DISPATCH_TIMEOUT.X, DISPATCH_TIMEOUT.Y, DISPATCH_TIMEOUT.W, DISPATCH_TIMEOUT.H, 8, ILI9341_DARKGREY);
+  tft.setCursor(DISPATCH_TIMEOUT.X+5, DISPATCH_TIMEOUT.Y+10);
+  tft.println("Dispatch Timeout");
+  tft.drawRoundRect(RAILCOM_SETTING.X, RAILCOM_SETTING.Y, RAILCOM_SETTING.W, RAILCOM_SETTING.H, 8, ILI9341_DARKGREY);
+  tft.setCursor(RAILCOM_SETTING.X+20, RAILCOM_SETTING.Y+7);
+  tft.println("Railcom");
+  
+  tft.fillRoundRect(RETURN_BOX.X, RETURN_BOX.Y, RETURN_BOX.W, RETURN_BOX.H, 4, ILI9341_LIGHTGREY);
+  tft.drawRoundRect(RETURN_BOX.X, RETURN_BOX.Y, RETURN_BOX.W, RETURN_BOX.H, 4, ILI9341_DARKGREY);
+  tft.setCursor(RETURN_BOX.X+2, RETURN_BOX.Y+2);
+  tft.setTextColor(ILI9341_DARKGREY);
+  tft.setFont(AwesomeF000_40);
+  tft.print((char)100);
 }
 
 void mainPage()
 {
   tft.fillScreen(BACKGROUND);
+  deactivateBoxes();
   RETURN_BOX.active = 0;
   CURRENT_FRAME.active = 1;
   CURRENT_BOX.active = 1;
   SESSIONS_BOX.active = 1;
   TRACK_STAT.active = 1;
-  RAIL_COM.active = 0;
   SETTINGS_BOX.active = 1;
   SWAP_BOX.active = 1;
   initScreenCurrent();
@@ -273,19 +307,15 @@ void mainPage()
 
 void inactivePopup()
 {
-  tft.fillScreen(BACKGROUND);
-  tft.setCursor(50, 10);
+  //tft.fillScreen(BACKGROUND);
+  backgroundSettingsPage();
+  tft.fillRoundRect(SPLASH_BOX.X, SPLASH_BOX.Y, SPLASH_BOX.W, SPLASH_BOX.H, 10,ILI9341_WHITE);
+  tft.drawRoundRect(SPLASH_BOX.X, SPLASH_BOX.Y, SPLASH_BOX.W, SPLASH_BOX.H, 10,ILI9341_BLACK);
+  tft.setCursor(40, 30);
   tft.setTextColor(ILI9341_BLACK);
   tft.setFont(Arial_24);
   tft.print("Inactive Timeout");
-  CURRENT_FRAME.active = 0;
-  CURRENT_BOX.active = 0;
-  SESSIONS_BOX.active = 0;
-  TRACK_STAT.active = 0;
-  RAIL_COM.active = 0;
-  SETTINGS_BOX.active = 0;
-  SWAP_BOX.active = 0;
-  INACTIVE_TIMEOUT.active = 0;
+  deactivateBoxes();
   
   tft.setTextColor(ILI9341_BLACK);
   tft.setFont(Arial_12);
@@ -305,16 +335,16 @@ void inactivePopup()
   tft.drawCircle(OPTION_4_RADIO.X + 20, OPTION_4_RADIO.Y + 20, 15, ILI9341_BLACK);
   switch (inactiveTimeout) {
      case 0:
-       tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+       tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
        break;
      case 240:
-       tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+       tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
        break;
      case 600:
-       tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+       tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
        break;
      case 1200:
-       tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+       tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
        break;
      default: 
        // if nothing else matches, do the default
@@ -327,25 +357,21 @@ void inactivePopup()
   OPTION_3_RADIO.active = 1;
   OPTION_4_RADIO.active = 1;
   
-  returnButton();
-  RETURN_BOX.active = 1;
+  //returnButton();
+  //RETURN_BOX.active = 1;
 }
 
 void activePopup()
 {
-  tft.fillScreen(BACKGROUND);
-  tft.setCursor(50, 10);
+  //tft.fillScreen(BACKGROUND);
+  backgroundSettingsPage();
+  tft.fillRoundRect(SPLASH_BOX.X, SPLASH_BOX.Y, SPLASH_BOX.W, SPLASH_BOX.H, 10,ILI9341_WHITE);
+  tft.drawRoundRect(SPLASH_BOX.X, SPLASH_BOX.Y, SPLASH_BOX.W, SPLASH_BOX.H, 10,ILI9341_BLACK);
+  tft.setCursor(50, 30);
   tft.setTextColor(ILI9341_BLACK);
   tft.setFont(Arial_24);
   tft.print("Active Timeout");
-  CURRENT_FRAME.active = 0;
-  CURRENT_BOX.active = 0;
-  SESSIONS_BOX.active = 0;
-  TRACK_STAT.active = 0;
-  RAIL_COM.active = 0;
-  SETTINGS_BOX.active = 0;
-  SWAP_BOX.active = 0;
-  ACTIVE_TIMEOUT.active = 0;
+  deactivateBoxes();
   
   tft.setTextColor(ILI9341_BLACK);
   tft.setFont(Arial_12);
@@ -364,16 +390,16 @@ void activePopup()
   tft.drawCircle(OPTION_4_RADIO.X + 20, OPTION_4_RADIO.Y + 20, 15, ILI9341_BLACK);
   switch (activeTimeout) {
      case 0:
-       tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+       tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
        break;
      case 240:
-       tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+       tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
        break;
      case 600:
-       tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+       tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
        break;
      case 1200:
-       tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+       tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
        break;
      default: 
        // if nothing else matches, do the default
@@ -386,26 +412,22 @@ void activePopup()
   OPTION_3_RADIO.active = 1;
   OPTION_4_RADIO.active = 1;
   
-  returnButton();
-  RETURN_BOX.active = 1;
+  //returnButton();
+  //RETURN_BOX.active = 1;
 }
 
 
 void dispatchPopup()
 {
-  tft.fillScreen(BACKGROUND);
-  tft.setCursor(50, 10);
+  //tft.fillScreen(BACKGROUND);
+  backgroundSettingsPage();
+  tft.fillRoundRect(SPLASH_BOX.X, SPLASH_BOX.Y, SPLASH_BOX.W, SPLASH_BOX.H, 10,ILI9341_WHITE);
+  tft.drawRoundRect(SPLASH_BOX.X, SPLASH_BOX.Y, SPLASH_BOX.W, SPLASH_BOX.H, 10,ILI9341_BLACK);
+  tft.setCursor(35, 30);
   tft.setTextColor(ILI9341_BLACK);
   tft.setFont(Arial_24);
   tft.print("Dispatch Timeout");
-  CURRENT_FRAME.active = 0;
-  CURRENT_BOX.active = 0;
-  SESSIONS_BOX.active = 0;
-  TRACK_STAT.active = 0;
-  RAIL_COM.active = 0;
-  SETTINGS_BOX.active = 0;
-  SWAP_BOX.active = 0;
-  DISPATCH_TIMEOUT.active = 0;
+  deactivateBoxes();
   
   tft.setTextColor(ILI9341_BLACK);
   tft.setFont(Arial_12);
@@ -424,16 +446,16 @@ void dispatchPopup()
   tft.drawCircle(OPTION_4_RADIO.X + 20, OPTION_4_RADIO.Y + 20, 15, ILI9341_BLACK);
   switch (dispatchTimeout) {
      case 0:
-       tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+       tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
        break;
      case 240:
-       tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+       tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
        break;
      case 600:
-       tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+       tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
        break;
      case 1200:
-       tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+       tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
        break;
      default: 
        // if nothing else matches, do the default
@@ -446,6 +468,109 @@ void dispatchPopup()
   OPTION_3_RADIO.active = 1;
   OPTION_4_RADIO.active = 1;
   
-  returnButton();
-  RETURN_BOX.active = 1;
+  //returnButton();
+  //RETURN_BOX.active = 1;
 }
+
+void analogPopup()
+{
+  //tft.fillScreen(BACKGROUND);
+  backgroundSettingsPage();
+  tft.fillRoundRect(SPLASH_BOX.X, SPLASH_BOX.Y, SPLASH_BOX.W, SPLASH_BOX.H, 10,ILI9341_WHITE);
+  tft.drawRoundRect(SPLASH_BOX.X, SPLASH_BOX.Y, SPLASH_BOX.W, SPLASH_BOX.H, 10,ILI9341_BLACK);
+  tft.setCursor(60, 30);
+  tft.setTextColor(ILI9341_BLACK);
+  tft.setFont(Arial_24);
+  tft.print("Analog Mode");
+  deactivateBoxes();
+  
+  tft.setTextColor(ILI9341_BLACK);
+  tft.setFont(Arial_12);
+  tft.setCursor(OPTION_2_RADIO.X-10, OPTION_2_RADIO.Y-20);
+  tft.println("Inactive");
+  tft.setCursor(OPTION_4_RADIO.X-5, OPTION_4_RADIO.Y-20);
+  tft.println("Active");
+
+  tft.drawCircle(OPTION_2_RADIO.X + 20, OPTION_2_RADIO.Y + 20, 15, ILI9341_BLACK);
+  tft.drawCircle(OPTION_4_RADIO.X + 20, OPTION_4_RADIO.Y + 20, 15, ILI9341_BLACK);
+
+  if (mode_word.analog_en) {
+    tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_4_RADIO.Y + 20, 10, DOT_COLOUR);
+  } else {
+    tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_2_RADIO.Y + 20, 10, DOT_COLOUR);
+  }
+
+  OPTION_2_RADIO.active = 1;
+  OPTION_4_RADIO.active = 1;
+
+}
+
+void currentPopup()
+{
+  //tft.fillScreen(BACKGROUND);
+  backgroundSettingsPage();
+  tft.fillRoundRect(SPLASH_BOX.X, SPLASH_BOX.Y, SPLASH_BOX.W, SPLASH_BOX.H, 10,ILI9341_WHITE);
+  tft.drawRoundRect(SPLASH_BOX.X, SPLASH_BOX.Y, SPLASH_BOX.W, SPLASH_BOX.H, 10,ILI9341_BLACK);
+  tft.setCursor(40, 30);
+  tft.setTextColor(ILI9341_BLACK);
+  tft.setFont(Arial_24);
+  tft.print("Current Settings");
+  deactivateBoxes();
+  
+  tft.setTextColor(ILI9341_BLACK);
+  tft.setFont(Arial_12);
+
+}
+
+void railcomPopup()
+{
+  //tft.fillScreen(BACKGROUND);
+  backgroundSettingsPage();
+  tft.fillRoundRect(SPLASH_BOX.X, SPLASH_BOX.Y, SPLASH_BOX.W, SPLASH_BOX.H, 10,ILI9341_WHITE);
+  tft.drawRoundRect(SPLASH_BOX.X, SPLASH_BOX.Y, SPLASH_BOX.W, SPLASH_BOX.H, 10,ILI9341_BLACK);
+  tft.setCursor(50, 30);
+  tft.setTextColor(ILI9341_BLACK);
+  tft.setFont(Arial_24);
+  tft.print("Railcom Cutout");
+  deactivateBoxes();
+  
+  tft.setTextColor(ILI9341_BLACK);
+  tft.setFont(Arial_12);
+  tft.setCursor(OPTION_2_RADIO.X-10, OPTION_2_RADIO.Y-20);
+  tft.println("Inactive");
+  tft.setCursor(OPTION_4_RADIO.X-5, OPTION_4_RADIO.Y-20);
+  tft.println("Active");
+
+  tft.drawCircle(OPTION_2_RADIO.X + 20, OPTION_2_RADIO.Y + 20, 15, ILI9341_BLACK);
+  tft.drawCircle(OPTION_4_RADIO.X + 20, OPTION_4_RADIO.Y + 20, 15, ILI9341_BLACK);
+
+  if (mode_word.railcom) {
+    tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_4_RADIO.Y + 20, 10, DOT_COLOUR);
+  } else {
+    tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_2_RADIO.Y + 20, 10, DOT_COLOUR);
+  }
+
+  OPTION_2_RADIO.active = 1;
+  OPTION_4_RADIO.active = 1;
+
+}
+
+void deactivateBoxes() {
+  CURRENT_FRAME.active = 0;
+  CURRENT_BOX.active = 0;
+  SESSIONS_BOX.active = 0;
+  TRACK_STAT.active = 0;
+  RAIL_COM.active = 0;
+  SETTINGS_BOX.active = 0;
+  SWAP_BOX.active = 0;
+  ACTIVE_TIMEOUT.active = 0;
+  INACTIVE_TIMEOUT.active = 0;
+  DISPATCH_TIMEOUT.active = 0;
+  ANALOG_SETTING.active = 0;
+  CURRENT_SETTING.active = 0;
+  OPTION_1_RADIO.active = 0;
+  OPTION_2_RADIO.active = 0;
+  OPTION_3_RADIO.active = 0;
+  OPTION_4_RADIO.active = 0;
+}
+

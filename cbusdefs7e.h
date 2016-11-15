@@ -54,6 +54,8 @@
 #define OPC_RSTAT   0x0c    // Rest node status
 #define OPC_RQNN    0x0d    // Rest node number
 #define OPC_RQNP    0x10    // Read node parameters
+#define OPC_RCOF     0x12    // Railcom off
+#define OPC_RCON     0x13    // Railcom 
 
 // Packets with 1 data byte
 

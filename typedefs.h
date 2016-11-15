@@ -22,6 +22,9 @@ enum screenDisplay{
   ActiveTimeoutSplash,
   InactiveTimeoutSplash,
   DispatchSplash,
+  AnalogSplash,
+  CurrentSplash,
+  RailcomSplash,
 };
 
 

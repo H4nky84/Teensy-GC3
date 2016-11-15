@@ -33,24 +33,24 @@ void power_control(unsigned char cmd) {
 }
 
 void railcom_control(unsigned char cmd) {
-    if (cmd == OPC_RTOF) {
+    if (cmd == OPC_RCOF) {
         // Turn off main track power
         railcomEnabled = 0;
         mode_word.railcom = 0;
 
         // Acknowledge it
-        Tx1.buf[0] = OPC_TOF;
+        Tx1.buf[0] = OPC_RCOF;
     } else  {
         // Turn on main track power
         railcomEnabled = 1;
         mode_word.railcom = 1;
 
         // Acknowledge it
-        Tx1.buf[0] = OPC_TON;
+        Tx1.buf[0] = OPC_RCON;
         
     }
     can_tx(1);
-    railComIcon();
+    //railComIcon();
     EEPROM.update(EE_MW, mode_word.byte);
 }
 

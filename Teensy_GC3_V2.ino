@@ -77,6 +77,7 @@ CAN_message_t Tx1, rx_ptr, TXB0;
 #define MAGIC 93
 
 #define BACKGROUND ILI9341_WHITE
+#define DOT_COLOUR ILI9341_BLACK
 
 //
 // Flags register used for DCC packet transmission
@@ -200,23 +201,26 @@ screenDisplay currentScreen = Splash;
 
 boolean wastouched = true;
 
-rectangle TRACK_STAT = {90, 160, 140, 60, 1};
+rectangle TRACK_STAT = {90, 165, 140, 60, 1};
 rectangle RAIL_COM = {280, 120, 30, 30, 0};
 rectangle CURRENT_FRAME = {7, 50, 306, 60, 1};
 rectangle CURRENT_BOX = {188, 60, 85, 40, 1};
 rectangle SESSIONS_BOX = {90, 10, 85, 40, 1};
-rectangle SWAP_BOX = {10, 160, 60, 60, 1};
-rectangle SETTINGS_BOX = {250, 160, 60, 60, 1};
-rectangle RETURN_BOX = {250, 160, 60, 60, 0};
-rectangle INACTIVE_TIMEOUT = {30, 70, 180, 40, 0};
-rectangle ACTIVE_TIMEOUT = {30, 120, 180, 40, 0};
-rectangle DISPATCH_TIMEOUT = {30, 170, 180, 40, 0};
-
+rectangle SWAP_BOX = {10, 165, 60, 60, 1};
+rectangle SETTINGS_BOX = {250, 165, 60, 60, 1};
+rectangle RETURN_BOX = {240, 170, 60, 60, 0};
+rectangle INACTIVE_TIMEOUT = {10, 50, 180, 40, 0};
+rectangle ACTIVE_TIMEOUT = {10, 100, 180, 40, 0};
+rectangle DISPATCH_TIMEOUT = {10, 150, 180, 40, 0};
+rectangle ANALOG_SETTING = {200, 50, 110, 40, 0};
+rectangle CURRENT_SETTING = {200, 100, 110, 40, 0};
+rectangle SPLASH_BOX = {10, 20, 300, 160, 0};
+rectangle RAILCOM_SETTING = {10, 200, 180, 30, 0};
 
 rectangle OPTION_1_RADIO = {30, 100, 30, 60, 0};
-rectangle OPTION_2_RADIO = {108, 100, 40, 40, 0};
-rectangle OPTION_3_RADIO = {172, 100, 40, 40, 0};
-rectangle OPTION_4_RADIO = {236, 100, 40, 40, 0};
+rectangle OPTION_2_RADIO = {118, 100, 40, 40, 0};
+rectangle OPTION_3_RADIO = {182, 100, 40, 40, 0};
+rectangle OPTION_4_RADIO = {246, 100, 40, 40, 0};
 
 
 // dcc packet buffers for service mode programming track
@@ -425,8 +429,14 @@ void setup() {
       can_tx(1);
   }
 
-  mode_word.analog_en = 1;
-  mode_word.dispatch_active = 1;
+  if (railcomEnabled) {
+    railcom_control(OPC_RCON);
+  } else {
+    railcom_control(OPC_RCOF);
+  }
+
+  //mode_word.analog_en = 1;
+  //mode_word.dispatch_active = 1;
   initScreenCurrent();
   currentScreen = Main;
   SWAP_OP = 0;
@@ -486,63 +496,66 @@ void loop() {
 
         case Settings:
 
-          if ((buttonPressed(INACTIVE_TIMEOUT, p)) && INACTIVE_TIMEOUT.active) {
-            inactivePopup();
-            currentScreen = InactiveTimeoutSplash;
-            OPTION_1_RADIO.active = 1;
-            OPTION_2_RADIO.active = 1;
-            OPTION_3_RADIO.active = 1;
-            OPTION_4_RADIO.active = 1;
-          }
-
-          if ((buttonPressed(ACTIVE_TIMEOUT, p)) && ACTIVE_TIMEOUT.active) {
-            activePopup();
-            currentScreen = ActiveTimeoutSplash;
-            OPTION_1_RADIO.active = 1;
-            OPTION_2_RADIO.active = 1;
-            OPTION_3_RADIO.active = 1;
-            OPTION_4_RADIO.active = 1;
-          }
-
-          if ((buttonPressed(DISPATCH_TIMEOUT, p)) && DISPATCH_TIMEOUT.active) {
-            dispatchPopup();
-            currentScreen = DispatchSplash;
-            OPTION_1_RADIO.active = 1;
-            OPTION_2_RADIO.active = 1;
-            OPTION_3_RADIO.active = 1;
-            OPTION_4_RADIO.active = 1;
-          }
-
-          else if ((buttonPressed(RAIL_COM, p)) && RAIL_COM.active) {
-            if(railcomEnabled == 0) {
-              railcom_control(OPC_RTON);
-              //PowerON = 1;
-              railcomEnabled = 1;
-            }
-            else {
-              railcom_control(OPC_RTOF);
-              //PowerON = 0;
-              railcomEnabled = 0;
-              
-            }
-          }
-
-          if ((buttonPressed(RETURN_BOX, p)) && RETURN_BOX.active) {
+          if (buttonPressed(RETURN_BOX, p)) {
             mainPage();
             currentScreen = Main;
           }
+
+          if (buttonPressed(INACTIVE_TIMEOUT, p)) {
+            inactivePopup();
+            currentScreen = InactiveTimeoutSplash;
+          }
+
+          if (buttonPressed(ACTIVE_TIMEOUT, p)){
+            activePopup();
+            currentScreen = ActiveTimeoutSplash;
+          }
+
+          if (buttonPressed(DISPATCH_TIMEOUT, p)) {
+            dispatchPopup();
+            currentScreen = DispatchSplash;
+          }
+
+          if (buttonPressed(ANALOG_SETTING, p)) {
+            analogPopup();
+            currentScreen = AnalogSplash;
+          }
+
+          if (buttonPressed(CURRENT_SETTING, p)) {
+            currentPopup();
+            currentScreen = CurrentSplash;
+          }
+
+          if (buttonPressed(RAILCOM_SETTING, p)) {
+            railcomPopup();
+            currentScreen = RailcomSplash;
+          }
+
+          /*if ((buttonPressed(RAIL_COM, p)) && RAIL_COM.active) {
+            if(railcomEnabled == 0) {
+              railcom_control(OPC_RCON);
+              railcomEnabled = 1;
+            }
+            else {
+              railcom_control(OPC_RCOF);
+              railcomEnabled = 0;
+            }
+          }*/
 
         break;
 
         case ActiveTimeoutSplash:
 
+          /*
           if ((buttonPressed(RETURN_BOX, p)) && RETURN_BOX.active) {
             settingsPage();
             currentScreen = Settings;
-            OPTION_1_RADIO.active = 0;
-            OPTION_2_RADIO.active = 0;
-            OPTION_3_RADIO.active = 0;
-            OPTION_4_RADIO.active = 0;
+          }
+          */
+
+          if (!buttonPressed(SPLASH_BOX, p)) {
+            settingsPage();
+            currentScreen = Settings;
           }
 
           if ((buttonPressed(OPTION_1_RADIO, p)) && OPTION_1_RADIO.active) {
@@ -550,7 +563,7 @@ void loop() {
             mode_word.active_timeout = 0;
             ee_write_short(EE_ACTIVE_TIMEOUT, activeTimeout);
             EEPROM.update(EE_MW, mode_word.byte);
-            tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+            tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
             tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
             tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
             tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
@@ -562,7 +575,7 @@ void loop() {
             ee_write_short(EE_ACTIVE_TIMEOUT, activeTimeout);
             EEPROM.update(EE_MW, mode_word.byte);
             tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
-            tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+            tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
             tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
             tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
           }
@@ -574,7 +587,7 @@ void loop() {
             EEPROM.update(EE_MW, mode_word.byte);
             tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
             tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
-            tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+            tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
             tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
           }
 
@@ -586,20 +599,21 @@ void loop() {
             tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
             tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
             tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
-            tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+            tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
           }
 
         break;
 
         case InactiveTimeoutSplash:
 
-          if ((buttonPressed(RETURN_BOX, p)) && RETURN_BOX.active) {
+          /*if ((buttonPressed(RETURN_BOX, p)) && RETURN_BOX.active) {
             settingsPage();
             currentScreen = Settings;
-            OPTION_1_RADIO.active = 0;
-            OPTION_2_RADIO.active = 0;
-            OPTION_3_RADIO.active = 0;
-            OPTION_4_RADIO.active = 0;
+          }*/
+
+          if (!buttonPressed(SPLASH_BOX, p)) {
+            settingsPage();
+            currentScreen = Settings;
           }
 
           if ((buttonPressed(OPTION_1_RADIO, p)) && OPTION_1_RADIO.active) {
@@ -607,7 +621,7 @@ void loop() {
             mode_word.inactive_timeout = 0;
             ee_write_short(EE_INACTIVE_TIMEOUT, inactiveTimeout);
             EEPROM.update(EE_MW, mode_word.byte);
-            tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+            tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
             tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
             tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
             tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
@@ -619,7 +633,7 @@ void loop() {
             ee_write_short(EE_INACTIVE_TIMEOUT, inactiveTimeout);
             EEPROM.update(EE_MW, mode_word.byte);
             tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
-            tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+            tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
             tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
             tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
           }
@@ -631,7 +645,7 @@ void loop() {
             EEPROM.update(EE_MW, mode_word.byte);
             tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
             tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
-            tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+            tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
             tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
           }
 
@@ -643,20 +657,21 @@ void loop() {
             tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
             tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
             tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
-            tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+            tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
           }
 
         break;
 
         case DispatchSplash:
 
-          if ((buttonPressed(RETURN_BOX, p)) && RETURN_BOX.active) {
+          /*if ((buttonPressed(RETURN_BOX, p)) && RETURN_BOX.active) {
             settingsPage();
             currentScreen = Settings;
-            OPTION_1_RADIO.active = 0;
-            OPTION_2_RADIO.active = 0;
-            OPTION_3_RADIO.active = 0;
-            OPTION_4_RADIO.active = 0;
+          }*/
+
+          if (!buttonPressed(SPLASH_BOX, p)) {
+            settingsPage();
+            currentScreen = Settings;
           }
 
           if ((buttonPressed(OPTION_1_RADIO, p)) && OPTION_1_RADIO.active) {
@@ -664,7 +679,7 @@ void loop() {
             mode_word.dispatch_active = 0;
             ee_write_short(EE_DISPATCH_TIMEOUT, dispatchTimeout);
             EEPROM.update(EE_MW, mode_word.byte);
-            tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+            tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
             tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
             tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
             tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
@@ -676,7 +691,7 @@ void loop() {
             ee_write_short(EE_DISPATCH_TIMEOUT, dispatchTimeout);
             EEPROM.update(EE_MW, mode_word.byte);
             tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
-            tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+            tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
             tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
             tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
           }
@@ -688,7 +703,7 @@ void loop() {
             EEPROM.update(EE_MW, mode_word.byte);
             tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
             tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
-            tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+            tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
             tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
           }
 
@@ -700,7 +715,119 @@ void loop() {
             tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
             tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
             tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
-            tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLUE);
+            tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
+          }
+
+        break;
+
+        case AnalogSplash:
+
+          /*if ((buttonPressed(RETURN_BOX, p)) && RETURN_BOX.active) {
+            settingsPage();
+            currentScreen = Settings;
+          }*/
+
+          if (!buttonPressed(SPLASH_BOX, p)) {
+            settingsPage();
+            currentScreen = Settings;
+          }
+
+          if ((buttonPressed(OPTION_2_RADIO, p)) && OPTION_2_RADIO.active) {
+            mode_word.analog_en = 0;
+            EEPROM.update(EE_MW, mode_word.byte);
+            tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
+            tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
+          }
+
+          if ((buttonPressed(OPTION_4_RADIO, p)) && OPTION_4_RADIO.active) {
+            mode_word.analog_en = 1;
+            EEPROM.update(EE_MW, mode_word.byte);
+            tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
+            tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
+          }
+
+        break;
+
+        case CurrentSplash:
+
+          /*if ((buttonPressed(RETURN_BOX, p)) && RETURN_BOX.active) {
+            settingsPage();
+            currentScreen = Settings;
+          }*/
+
+          if (!buttonPressed(SPLASH_BOX, p)) {
+            settingsPage();
+            currentScreen = Settings;
+          }
+
+          if ((buttonPressed(OPTION_1_RADIO, p)) && OPTION_1_RADIO.active) {
+            dispatchTimeout = 0;
+            mode_word.dispatch_active = 0;
+            ee_write_short(EE_DISPATCH_TIMEOUT, dispatchTimeout);
+            EEPROM.update(EE_MW, mode_word.byte);
+            tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLACK);
+            tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
+            tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
+            tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
+          }
+
+          if ((buttonPressed(OPTION_2_RADIO, p)) && OPTION_2_RADIO.active) {
+            dispatchTimeout = 240;
+            mode_word.dispatch_active = 1;
+            ee_write_short(EE_DISPATCH_TIMEOUT, dispatchTimeout);
+            EEPROM.update(EE_MW, mode_word.byte);
+            tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
+            tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLACK);
+            tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
+            tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
+          }
+
+          if ((buttonPressed(OPTION_3_RADIO, p)) && OPTION_3_RADIO.active) {
+            dispatchTimeout = 600;
+            mode_word.dispatch_active = 1;
+            ee_write_short(EE_DISPATCH_TIMEOUT, dispatchTimeout);
+            EEPROM.update(EE_MW, mode_word.byte);
+            tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
+            tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
+            tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLACK);
+            tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
+          }
+
+          if ((buttonPressed(OPTION_4_RADIO, p)) && OPTION_4_RADIO.active) {
+            dispatchTimeout = 1200;
+            mode_word.dispatch_active = 1;
+            ee_write_short(EE_DISPATCH_TIMEOUT, dispatchTimeout);
+            EEPROM.update(EE_MW, mode_word.byte);
+            tft.fillCircle(OPTION_1_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
+            tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
+            tft.fillCircle(OPTION_3_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
+            tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLACK);
+          }
+
+        break;
+
+        case RailcomSplash:
+
+          /*if ((buttonPressed(RETURN_BOX, p)) && RETURN_BOX.active) {
+            settingsPage();
+            currentScreen = Settings;
+          }*/
+
+          if (!buttonPressed(SPLASH_BOX, p)) {
+            settingsPage();
+            currentScreen = Settings;
+          }
+
+          if ((buttonPressed(OPTION_2_RADIO, p)) && OPTION_2_RADIO.active) {
+            railcom_control(OPC_RCOF);
+            tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
+            tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
+          }
+
+          if ((buttonPressed(OPTION_4_RADIO, p)) && OPTION_4_RADIO.active) {
+            railcom_control(OPC_RCON);
+            tft.fillCircle(OPTION_2_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_WHITE);
+            tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
           }
 
         break;

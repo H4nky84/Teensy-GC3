@@ -25,6 +25,8 @@ void en_ram(void);
 #define OPC_RESTP   0x0a    // Request emergency stop all
 
 #define OPC_RQNP    0x10    // Read node parameters
+#define OPC_RCOF     0x12    // Railcom off
+#define OPC_RCON     0x13    // Railcom on
 
 #define OPC_KLOC    0x21    // Release engine by handle
 #define OPC_QLOC    0x22    // Query engine by handle
