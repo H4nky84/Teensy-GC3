@@ -12,6 +12,8 @@
 //#define TS_MAXX 260
 //#define TS_MAXY 400
 
+#define BUFFPIXEL 80
+
 boolean RecordOn = false;
 
 void trackOffMessage()
@@ -57,6 +59,8 @@ void initScreenCurrent(){
   } else trackOffMessage();
   
   railComIcon();
+  swapButton();
+  settingsButton();
   tft.setCursor(SESSIONS_BOX.X, SESSIONS_BOX.Y);
   tft.setTextColor(ILI9341_BLACK);
   tft.setFont(Arial_16);
@@ -90,14 +94,23 @@ void updateScreenCurrent(){
 void railComIcon()
 {
   if(railcomEnabled){
-  tft.fillRoundRect(RAIL_COM.X, RAIL_COM.Y, RAIL_COM.W, RAIL_COM.H, 4, ILI9341_DARKGREEN);
-  tft.drawRoundRect(RAIL_COM.X, RAIL_COM.Y, RAIL_COM.W, RAIL_COM.H, 4, ILI9341_BLACK);
-  tft.setCursor(RAIL_COM.X+7, RAIL_COM.Y+7);
-  tft.setTextColor(ILI9341_WHITE);
-  tft.setFont(Arial_16);
-  tft.println("R");
-  railcomDisplay_active = 1;
-  } else{
+    tft.fillRoundRect(RAIL_COM.X, RAIL_COM.Y, RAIL_COM.W, RAIL_COM.H, 4, ILI9341_DARKGREEN);
+    tft.drawRoundRect(RAIL_COM.X, RAIL_COM.Y, RAIL_COM.W, RAIL_COM.H, 4, ILI9341_BLACK);
+    tft.setCursor(RAIL_COM.X+7, RAIL_COM.Y+7);
+    tft.setTextColor(ILI9341_WHITE);
+    tft.setFont(Arial_16);
+    tft.println("R");
+    railcomDisplay_active = 1;
+  }
+  if(analogOperationActive){
+    tft.fillRoundRect(RAIL_COM.X, RAIL_COM.Y, RAIL_COM.W, RAIL_COM.H, 4, ILI9341_ORANGE);
+    tft.drawRoundRect(RAIL_COM.X, RAIL_COM.Y, RAIL_COM.W, RAIL_COM.H, 4, ILI9341_BLACK);
+    tft.setCursor(RAIL_COM.X+7, RAIL_COM.Y+7);
+    tft.setTextColor(ILI9341_WHITE);
+    tft.setFont(Arial_16);
+    tft.println("A");
+  }
+  if ((!railcomEnabled) && (!analogOperationActive)){
     tft.fillRect(RAIL_COM.X, RAIL_COM.Y, RAIL_COM.W, RAIL_COM.H, BACKGROUND);
     railcomDisplay_active = 0;
   }
@@ -572,5 +585,139 @@ void deactivateBoxes() {
   OPTION_2_RADIO.active = 0;
   OPTION_3_RADIO.active = 0;
   OPTION_4_RADIO.active = 0;
+}
+
+//===========================================================
+// Try Draw using writeRect
+void bmpDraw(const char *filename, uint8_t x, uint16_t y) {
+
+  File     bmpFile;
+  int      bmpWidth, bmpHeight;   // W+H in pixels
+  uint8_t  bmpDepth;              // Bit depth (currently must be 24)
+  uint32_t bmpImageoffset;        // Start of image data in file
+  uint32_t rowSize;               // Not always = bmpWidth; may have padding
+  uint8_t  sdbuffer[3*BUFFPIXEL]; // pixel buffer (R+G+B per pixel)
+  uint16_t buffidx = sizeof(sdbuffer); // Current position in sdbuffer
+  boolean  goodBmp = false;       // Set to true on valid header parse
+  boolean  flip    = true;        // BMP is stored bottom-to-top
+  int      w, h, row, col;
+  uint8_t  r, g, b;
+  uint32_t pos = 0, startTime = millis();
+
+  uint16_t awColors[320];  // hold colors for one row at a time...
+
+  if((x >= tft.width()) || (y >= tft.height())) return;
+
+  //Serial.println();
+  //Serial.print(F("Loading image '"));
+  //Serial.print(filename);
+  //Serial.println('\'');
+
+  // Open requested file on SD card
+  if (!(bmpFile = SD.open(filename))) {
+    tft.print(F("File not found"));
+    return;
+  }
+
+  // Parse BMP header
+  if(read16(bmpFile) == 0x4D42) { // BMP signature
+    tft.print(F("File size: ")); tft.println(read32(bmpFile));
+    (void)read32(bmpFile); // Read & ignore creator bytes
+    bmpImageoffset = read32(bmpFile); // Start of image data
+    tft.print(F("Image Offset: ")); tft.println(bmpImageoffset, DEC);
+    // Read DIB header
+    tft.print(F("Header size: ")); tft.println(read32(bmpFile));
+    bmpWidth  = read32(bmpFile);
+    bmpHeight = read32(bmpFile);
+    if(read16(bmpFile) == 1) { // # planes -- must be '1'
+      bmpDepth = read16(bmpFile); // bits per pixel
+      tft.print(F("Bit Depth: ")); tft.println(bmpDepth);
+      if((bmpDepth == 24) && (read32(bmpFile) == 0)) { // 0 = uncompressed
+
+        goodBmp = true; // Supported BMP format -- proceed!
+        //Serial.print(F("Image size: "));
+        //Serial.print(bmpWidth);
+        //Serial.print('x');
+        //Serial.println(bmpHeight);
+
+        // BMP rows are padded (if needed) to 4-byte boundary
+        rowSize = (bmpWidth * 3 + 3) & ~3;
+
+        // If bmpHeight is negative, image is in top-down order.
+        // This is not canon but has been observed in the wild.
+        if(bmpHeight < 0) {
+          bmpHeight = -bmpHeight;
+          flip      = false;
+        }
+
+        // Crop area to be loaded
+        w = bmpWidth;
+        h = bmpHeight;
+        if((x+w-1) >= tft.width())  w = tft.width()  - x;
+        if((y+h-1) >= tft.height()) h = tft.height() - y;
+
+        for (row=0; row<h; row++) { // For each scanline...
+
+          // Seek to start of scan line.  It might seem labor-
+          // intensive to be doing this on every line, but this
+          // method covers a lot of gritty details like cropping
+          // and scanline padding.  Also, the seek only takes
+          // place if the file position actually needs to change
+          // (avoids a lot of cluster math in SD library).
+          if(flip) // Bitmap is stored bottom-to-top order (normal BMP)
+            pos = bmpImageoffset + (bmpHeight - 1 - row) * rowSize;
+          else     // Bitmap is stored top-to-bottom
+            pos = bmpImageoffset + row * rowSize;
+          if(bmpFile.position() != pos) { // Need seek?
+            bmpFile.seek(pos);
+            buffidx = sizeof(sdbuffer); // Force buffer reload
+          }
+
+          for (col=0; col<w; col++) { // For each pixel...
+            // Time to read more pixel data?
+            if (buffidx >= sizeof(sdbuffer)) { // Indeed
+              bmpFile.read(sdbuffer, sizeof(sdbuffer));
+              buffidx = 0; // Set index to beginning
+            }
+
+            // Convert pixel from BMP to TFT format, push to display
+            b = sdbuffer[buffidx++];
+            g = sdbuffer[buffidx++];
+            r = sdbuffer[buffidx++];
+            awColors[col] = tft.color565(r,g,b);
+          } // end pixel
+          tft.writeRect(0, row, w, 1, awColors);
+        } // end scanline
+        //Serial.print(F("Loaded in "));
+        //Serial.print(millis() - startTime);
+        //Serial.println(" ms");
+      } // end goodBmp
+    }
+  }
+
+  bmpFile.close();
+  if(!goodBmp) tft.println(F("BMP format not recognized."));
+}
+
+
+
+// These read 16- and 32-bit types from the SD card file.
+// BMP data is stored little-endian, Arduino is little-endian too.
+// May need to reverse subscript order if porting elsewhere.
+
+uint16_t read16(File &f) {
+  uint16_t result;
+  ((uint8_t *)&result)[0] = f.read(); // LSB
+  ((uint8_t *)&result)[1] = f.read(); // MSB
+  return result;
+}
+
+uint32_t read32(File &f) {
+  uint32_t result;
+  ((uint8_t *)&result)[0] = f.read(); // LSB
+  ((uint8_t *)&result)[1] = f.read();
+  ((uint8_t *)&result)[2] = f.read();
+  ((uint8_t *)&result)[3] = f.read(); // MSB
+  return result;
 }
 

@@ -153,7 +153,11 @@ void packet_gen(void) {
 void queue_add() {
 	unsigned char i, free_handle, err;
 	unsigned int addr = ((unsigned int)rx_ptr.buf[1]<<8) | rx_ptr.buf[2];
-  // Ignore attempts to use address 0 unless analog operation is available
+  // Ignore attempts to use address 0 (short addressing)
+  if (addr == 0) {
+    return;
+  }
+  //If it is long address 0 and the analog mode is enabled, then activate the analog mode and block the queue
   if (addr == 0xC000) {
     if ((mode_word.analog_en) && (noOfSessions == 0) && (SWAP_OP == 0)) {
       //turn off railcom operaiton and enable analog operation
@@ -176,7 +180,7 @@ void queue_add() {
       Tx1.buf[7] = q_queue[0].fn2a;
       can_tx(8);
       noOfSessions ++;
-      analogIcon();
+      railComIcon();
     }
     //not valid for any other situation
     return;
@@ -496,7 +500,7 @@ void purge_session(void) {
       pinMode(DCC_POS, OUTPUT);
       analogOperationActive = 0;
       railcomEnabled = mode_word.railcom;
-      analogIcon();
+      //analogIcon();
       railComIcon();
     }
     noOfSessions --;
@@ -521,7 +525,7 @@ void purge_session(unsigned char idx) {
       pinMode(DCC_POS, OUTPUT);
       analogOperationActive = 0;
       railcomEnabled = mode_word.railcom;
-      analogIcon();
+      //analogIcon();
       railComIcon();
     }
     noOfSessions --;

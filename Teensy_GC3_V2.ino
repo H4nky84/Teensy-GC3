@@ -12,6 +12,7 @@
 #include <SPI.h>
 #include <ILI9341_t3.h>
 #include <XPT2046_Touchscreen.h>
+#include <SD.h>
 
 #include "merg_logo.c"
 #include "pjrc_logo.c"
@@ -194,6 +195,7 @@ uint16_t ch1Current_readings[CIRCBUFFERSIZE];    //array for ring buffer of curr
 uint16_t ch2Current_readings[CIRCBUFFERSIZE];
 unsigned char ch1Current_idx = 0;     //indexes for ring buffers
 unsigned char ch2Current_idx = 0;
+boolean sdCardPresent = 0;
 
 
 screenDisplay currentScreen = Splash;
@@ -239,6 +241,7 @@ void setup() {
   Serial.begin(9600);
   RAILCOM_SERIAL.begin(250000);
   analogReadResolution(12);
+  analogWriteFrequency(20, 16000); // Set the PWM frequency to 20kHz when in analog mode.
   
   //SPI.setSCK(14);
   tft.begin();
@@ -267,12 +270,15 @@ void setup() {
   pinMode(OVERLOAD_PIN, OUTPUT);
   pinMode(BOOSTER_OUT, OUTPUT);
   pinMode(START_PREAMBLE, OUTPUT);
-  pinMode(LED1, OUTPUT);
+  //pinMode(LED1, OUTPUT);
   pinMode(LED2, OUTPUT);
   pinMode(35, OUTPUT);
   pinMode(36, OUTPUT);
   digitalWrite(35, LOW);
   digitalWrite(36, LOW);
+  //pinMode(CS_PIN, OUTPUT);
+  //pinMode(7, INPUT);
+  //digitalWrite(CS_PIN, HIGH);
 
   //tft.setCursor(0, 0);
   //tft.println("IO Initialized");
@@ -403,19 +409,38 @@ void setup() {
   TXB0.ext = 0;
   TXB0.len = 1;
   TXB0.buf[0] = OPC_HLT;
+
+  tft.setTextColor(ILI9341_BLACK);
+  tft.fillScreen(BACKGROUND);
+
+  //built in sd card initialisation
+  /*
+  while (!SD.begin(BUILTIN_SDCARD)) {
+    Serial.println(F("failed to access SD card!"));
+    tft.println(F("failed to access SD card!"));
+    delay(2000);
+  }
+  */
+  #ifdef __MK66FX1M0__
+
+  if (SD.begin(BUILTIN_SDCARD)) {
+    bmpDraw("splash.bmp", 0, 0);
+    //bmpDraw("flowers.bmp", 0, 0);
+    sdCardPresent = 1;
+  } else {
+    tft.println(F("failed to access SD card!"));
+  }
+  delay(5000);
+  #endif
+  delay(2000);
+
   
 
   //Turn on CAN transceiver 0
-  digitalWrite(2, 0);
+  //digitalWrite(2, 0);
   
   // enable interrupts
   interrupts();
-
-  //tft.setCursor(0, 150);
-  //tft.println("Commencing Operation");
-  splashScreen();
-  //currentScreen = Main;
-  delay(3000);
 
   //unsigned char i;
   LEDCanActTimer = 0;
@@ -440,8 +465,6 @@ void setup() {
   initScreenCurrent();
   currentScreen = Main;
   SWAP_OP = 0;
-  swapButton();
-  settingsButton();
 
 }
 
@@ -1016,7 +1039,7 @@ void loop() {
 
 FASTRUN void railComInit(){
    railcomDelay.end(); //stop the interval timer
-   digitalWriteFast(START_PREAMBLE, 1);
+   //digitalWriteFast(START_PREAMBLE, 1);
    //digitalWriteFast(LEDCANACT, 1);
    railCom_active = 1;
    digitalWriteFast(DCC_OUT_POS, 1);
@@ -1031,7 +1054,7 @@ FASTRUN void railComInit(){
 }
 
 FASTRUN void railComCh1Start(){
-  digitalWriteFast(START_PREAMBLE, 0);
+  //digitalWriteFast(START_PREAMBLE, 0);
   railcomCh1Delay.end();
   RAILCOM_SERIAL.clear();
   railcomCh1Occ.begin(railComCh1End, 100); //begin railcom channel 1 occupied timer with period of 100 us
@@ -1039,7 +1062,7 @@ FASTRUN void railComCh1Start(){
 }
 
 FASTRUN void railComCh1End(){
-  digitalWriteFast(START_PREAMBLE, 1);
+  //digitalWriteFast(START_PREAMBLE, 1);
   railcomCh1Occ.end();
   railcomCh2Delay.begin(railComCh2Start, 7); //begin railcom channel 2 delay timer with period of 7 us
   railcomCh2Delay.priority(0);  //Set interrupt priority for bit timing to 0 (highest)
@@ -1053,7 +1076,7 @@ FASTRUN void railComCh1End(){
 }
 
 FASTRUN void railComCh2Start(){
-  digitalWriteFast(START_PREAMBLE, 0);
+  //digitalWriteFast(START_PREAMBLE, 0);
   railcomCh2Delay.end();
   RAILCOM_SERIAL.clear();
   railcomCh2Occ.begin(railComCh2End, 263); //begin railcom channel 2 occupied timer with period of 263 us
@@ -1061,7 +1084,7 @@ FASTRUN void railComCh2Start(){
 }
 
 FASTRUN void railComCh2End(){
-  digitalWriteFast(START_PREAMBLE, 0);
+  //digitalWriteFast(START_PREAMBLE, 0);
   railcomCh2Occ.end();
   railCom_active = 0;
   int i = 0;
