@@ -186,6 +186,9 @@
 #define ERR_SESSION_NOT_PRESENT 	3
 #define ERR_NO_MORE_ENGINES     	4
 #define ERR_ENGINE_NOT_FOUND    	5
+#define ERR_CAN_BUS_ERROR         6
+#define ERR_INVALID_REQUEST       7
+#define ERR_SESSION_CANCELLED     8
 
 // Status codes for OPC_SSTAT
 

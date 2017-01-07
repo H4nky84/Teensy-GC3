@@ -14,30 +14,32 @@
 #include <XPT2046_Touchscreen.h>
 #include <SD.h>
 
-#include "merg_logo.c"
-#include "pjrc_logo.c"
-
-// Use hardware SPI with SCK set to pin 14
+//#include "merg_logo.c"
+//#include "pjrc_logo.c"
 
 // For optimized ILI9341_t3 library
 #define TFT_DC      9
 #define TFT_CS      10
 #define TFT_RST    255  // 255 = unused, connect to 3.3V
 #define TFT_MOSI     11
-#define TFT_SCLK    14
+#define TFT_SCLK    13
 #define TFT_MISO    12
-#define CS_PIN  8
+#define TS_CS_PIN  8  //Touchscreen chip select
+#define TS_IRQ  7 //Touchscreen Interrupt request
 
-ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC, TFT_RST, TFT_MOSI, TFT_SCLK, TFT_MISO);
-XPT2046_Touchscreen ts(CS_PIN, 6);
+// Use hardware SPI
+//ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC, TFT_RST, TFT_MOSI, TFT_SCLK, TFT_MISO);
+ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC);  //Use standard SPI hardware with SCK on pin 13
+XPT2046_Touchscreen ts(TS_CS_PIN, TS_IRQ);  //Use pin 7 and 8 for the touchscreen interface along with the normal SPI
 
 //touchscreen x values go from 3700 (left hand side) to 350 (right hand side)
 // touchscreen y values go from  3700 (top) to 400 (bottom)
 
 #ifdef __MK66FX1M0__
-  FlexCAN CANbus(125000, 2);
+  FlexCAN CANbus(125000, 2);  //Primary MERG canbus on CAN0 with alternate pin mapping
+  FlexCAN CANbus2(250000, 1); //Secondary CANbus at 250k on CAN1
 #else
-  FlexCAN CANbus(125000, 0);
+  FlexCAN CANbus(125000, 0);  //If using Teensy 3.2, then just use the normal CAN0 on pins 3 and 4
 #endif
 
 
@@ -48,10 +50,10 @@ IntervalTimer railcomCh1Occ;
 IntervalTimer railcomCh2Delay;
 IntervalTimer railcomCh2Occ;
 
-#define RAILCOM_SERIAL Serial1
+#define RAILCOM_SERIAL Serial1  //Serial 1 is reserved for the railcom interface
 //#define USB_SERIAL Serial
 
-CAN_message_t Tx1, rx_ptr, TXB0;
+CAN_message_t Tx1, rx_ptr, TXB0, USBtxmsg, USBrxmsg;;
 
 //
 // Current sensing for Teensy
@@ -61,10 +63,10 @@ CAN_message_t Tx1, rx_ptr, TXB0;
 // 250mA overload is 125mV Vsense => 155 steps
 
 //
-#define I_ACK_DIFF 30  // No. steps for additional 60ma ACK pulse
-#define I_OVERLOAD 155  //This is the value for 250mA for the service mode
-#define I_DEFAULT 1500
-#define I_LIMIT 2400    //This is for 4 amps (capability of L6203
+#define I_ACK_DIFF 40  // No. steps for additional 60ma ACK pulse
+#define I_OVERLOAD 165  //This is the value for 250mA for the service mode
+#define I_DEFAULT 2600
+#define I_LIMIT 4000    //This is for 4 amps (capability of L6203
 
 // EEPROM addresses
 #define EE_MAGIC 0
@@ -197,6 +199,11 @@ unsigned char ch1Current_idx = 0;     //indexes for ring buffers
 unsigned char ch2Current_idx = 0;
 boolean sdCardPresent = 0;
 
+String inputString, outputString;
+unsigned int tempcanid1, tempcanid2;
+
+const char ASCII_table[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+
 
 screenDisplay currentScreen = Splash;
 
@@ -238,28 +245,19 @@ unsigned char i;
 
 
 void setup() {
-  Serial.begin(9600);
-  RAILCOM_SERIAL.begin(250000);
-  analogReadResolution(12);
+  Serial.begin(250000); //USB serial for use with JMRI
+  RAILCOM_SERIAL.begin(250000); //Serial interface for RailCom
+  analogReadResolution(12); //Set the analog inputs to 12 bit (4095) resolution
   analogWriteFrequency(20, 16000); // Set the PWM frequency to 20kHz when in analog mode.
-  
-  //SPI.setSCK(14);
+
+
+  //Set up TFT
   tft.begin();
   tft.fillScreen(ILI9341_BLACK);
-  //tft.setTextColor(ILI9341_YELLOW);
   tft.setRotation(3);
-  //tft.setFont(Arial_16);
-  //tft.setTextSize(1);
-  //tft.println("Welcome to the Teensy GC3");
   ts.begin();
 
-  
-  //delay(1000);
-
-  //tft.fillScreen(ILI9341_BLACK);
-  
-  //pinMode(SWAP_OP_HW, INPUT);
-  //pinMode(PWRBUTTON, INPUT_PULLUP);
+  //Pin setups
   pinMode(LEDCANACT, OUTPUT);
   pinMode(DCC_EN, OUTPUT);
   pinMode(DCC_OUT_POS, OUTPUT);
@@ -270,25 +268,19 @@ void setup() {
   pinMode(OVERLOAD_PIN, OUTPUT);
   pinMode(BOOSTER_OUT, OUTPUT);
   pinMode(START_PREAMBLE, OUTPUT);
-  //pinMode(LED1, OUTPUT);
-  pinMode(LED2, OUTPUT);
-  pinMode(35, OUTPUT);
-  pinMode(36, OUTPUT);
-  digitalWrite(35, LOW);
-  digitalWrite(36, LOW);
-  //pinMode(CS_PIN, OUTPUT);
-  //pinMode(7, INPUT);
-  //digitalWrite(CS_PIN, HIGH);
-
-  //tft.setCursor(0, 0);
-  //tft.println("IO Initialized");
-
+  
+  //Disable interrupts during setup
   noInterrupts();
 
+  //Initialising
   PowerButtonDelay = 0;
   PowerTrigger = 0;
   PowerON = 0;
   TouchTapTimer = 0;
+  
+  //Ensure the strings for use with the CAN to Serial are big enough
+  inputString.reserve(36);
+  outputString.reserve(36);
   
   //
   // setup initial values before enabling ports
@@ -303,15 +295,9 @@ void setup() {
   retry_delay = 0;
   stat_flags.byte = 0;
 
-  //tft.setCursor(0, 30);
-  //tft.println("Operation Flags Initialized");
-
   digitalWriteFast(DCC_EN, 1);
 
   cbus_setup();
-
-  //tft.setCursor(0, 60);
-  //tft.println("CBUS Stack Initialized");
 
   ovld_delay = 0;
   bit_flag_s = 6;         // idle state
@@ -349,12 +335,9 @@ void setup() {
   s_head = 0;
   s_tail = 0;
 
-  //tft.setCursor(0, 90);
-  //tft.println("Queues Cleared");
-
   // clear the fifo receive buffers
-  while (ecan_fifo_empty() == 0) {
-      //rx_ptr->con = 0;
+  //while (ecan_fifo_empty() == 0) {
+  while (CANbus.available()) {
       CANbus.read(rx_ptr);
   }
 
@@ -430,7 +413,7 @@ void setup() {
   } else {
     tft.println(F("failed to access SD card!"));
   }
-  delay(5000);
+  delay(2000);
   #endif
   delay(2000);
 
@@ -504,6 +487,11 @@ void loop() {
               SWAP_OP = 0;
               swapButton();
             }
+          }
+
+          if ((buttonPressed(SESSIONS_BOX, p)) && (noOfSessions > 0)) {
+            //Purge all active sessions
+            purge_allSessions();
           }
   
           if ((buttonPressed(SETTINGS_BOX, p)) && SETTINGS_BOX.active) {
@@ -911,14 +899,34 @@ void loop() {
       }
 
       // Check for Rx packet and setup pointer to it
-      if (ecan_fifo_empty() == 0) {
+      //if (ecan_fifo_empty() == 0) {
+      if (CANbus.available()) {
+          CANbus.read(rx_ptr);
+          CAN2Serial(rx_ptr);
           // Decode the new command
           LEDCanActTimer = 2000;
           digitalWriteFast(LEDCANACT, 1);
           parse_cmd();
       }
 
-      //digitalWriteFast(LEDCANACT, q_queue[1].status.valid);
+      //Chekc if there is serial data available off the USB port, if it is and it is a valid gridconnect packet, parse it like any other command and send a copy of it out on the network
+      if (CheckSerial()) {
+        rx_ptr.id = USBtxmsg.id;
+        rx_ptr.len = USBtxmsg.len;
+        rx_ptr.ext = USBtxmsg.ext;
+        rx_ptr.rtr = USBtxmsg.rtr;
+        rx_ptr.buf[0] = USBtxmsg.buf[0];
+        rx_ptr.buf[1] = USBtxmsg.buf[1];
+        rx_ptr.buf[2] = USBtxmsg.buf[2];
+        rx_ptr.buf[3] = USBtxmsg.buf[3];
+        rx_ptr.buf[4] = USBtxmsg.buf[4];
+        rx_ptr.buf[5] = USBtxmsg.buf[5];
+        rx_ptr.buf[6] = USBtxmsg.buf[6];
+        rx_ptr.buf[7] = USBtxmsg.buf[7];
+        parse_cmd();
+        //CANbus.write(USBtxmsg);
+      }
+
 
       // Handle slot & service mode timeout and beeps every half second
       if (op_flags.slot_timer) {
@@ -1102,6 +1110,8 @@ FASTRUN void railComCh2End(){
       //digitalWriteFast(LEDCANACT, 0);
       */
 }
+
+
 
 
 

@@ -32,11 +32,11 @@
 extern unsigned char Latcount;
 extern unsigned short NN_temp;
 
-#define SW          	25	// Flim switch
-#define AWD         	24	// Sounder
-#define LEDCANACT     13   // CBUS activity
-#define LED1    		  33	// Internal booster/service track
-#define LED2    		  29	// RUN indicator
+//#define SW          	25	// Flim switch
+#define AWD         	36	// Sounder
+#define LEDCANACT     6   // CBUS activity
+//#define LED1    		  33	// Internal booster/service track
+//#define LED2    		  34	// RUN indicator
 
 //#define PWRBUTTON    	6	// Power ON/OFF
 //#define SWAP_OP_HW 		  5	// Jumper for main on ext booster or on board
@@ -45,13 +45,13 @@ extern unsigned short NN_temp;
 #define BOOSTER_OUT		27		// (pin 17) For scope debug - set bit when in high priority ISR
 //#define DCC_PKT_PIN	PORTCbits.RC5		// (pin 16) For scope debug - Set during packet send (can sync scope on packet start)
 //#define SHUTDOWN_N    PORTCbits.RC4
-#define START_PREAMBLE    32   //(pin 15) used to show when the first bit of a preamble is active
+#define START_PREAMBLE    35   //(pin 15) used to show when the first bit of a preamble is active
 #define DCC_OUT_POS       20
 #define DCC_OUT_NEG       21
-#define DCC_OUT_EN       18
+#define DCC_OUT_EN       5
 #define DCC_NEG		22	    // other side o/p 
 #define DCC_POS		23	    // one side of booster H-bridge o/p 
-#define DCC_EN        19
+#define DCC_EN        2
 
 #define CIRCBUFFERSIZE 4
 

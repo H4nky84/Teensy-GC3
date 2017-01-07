@@ -68,6 +68,7 @@ void initScreenCurrent(){
   tft.print(noOfSessions);
 }
 
+/*
 void splashScreen(){
   tft.fillScreen(BACKGROUND);
   tft.writeRect(38, 10, 244, 110, (uint16_t*)merg_logo);
@@ -77,6 +78,7 @@ void splashScreen(){
   tft.print("Powered by:");
   tft.writeRect(22, 200, 276, 31, (uint16_t*)pjrc_logo);
 }
+*/
 
 void updateScreenCurrent(){
   tft.fillRect(CURRENT_BOX.X, CURRENT_BOX.Y, CURRENT_BOX.W, CURRENT_BOX.H, ILI9341_BLACK);

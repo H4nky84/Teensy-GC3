@@ -56,6 +56,7 @@ unsigned char ecan_fifo_empty(void) {
     
     if (CANbus.available()) {
       CANbus.read(rx_ptr);
+      CAN2Serial(rx_ptr);
         // current buffer is not empty
         return 0;
     } else {

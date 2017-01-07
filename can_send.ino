@@ -68,23 +68,44 @@ void can_debug_dcc(void) {
  * Send contents of Tx1 buffer via CAN TXB1
  */
 void sendTX1(void) {
-	//unsigned char i;
+  boolean send_complete = 0;
+	int i;
 
 	can_transmit_timeout = 2;	// half second intervals
 	op_flags.can_transmit_failed = 0;
 
+ //Attempt to send the packet out at low priority up to 5 times if it wont send
+
+  for (i = 5; i >= 0; i--) {
+    if(CANbus.write(Tx1)) {
+      send_complete = 1;
+      break;
+    }
+  }
+
+  //If this still didnt work, attempt up to 3 times to send it high priority
+
+  if(send_complete == 0) {
+    Tx1.id &= 0b00001111111;    // clear old priority
+    Tx1.id |= 0b01110000000;    // high priority
+    for (i = 3; i >= 0; i--) {
+      if(CANbus.write(Tx1)) {
+        send_complete = 1;
+        break;
+      }
+    }
+  }
+
+  if(send_complete == 0) op_flags.can_transmit_failed = 0;
+
 	//while((TXB1CONbits.TXREQ) && (!op_flags.can_transmit_failed) && (can_transmit_timeout != 0));
-  CANbus.write(Tx1);
+  //CANbus.write(Tx1);
 
   LEDCanActTimer = 2000;
   digitalWriteFast(LEDCANACT, 1);
 
-
-	can_transmit_timeout = 2;	// half second intervals
-	op_flags.can_transmit_failed = 0;
-
-	//while ((TXB1CONbits.TXREQ) && (!op_flags.can_transmit_failed) && (can_transmit_timeout != 0));
-	//TXB1CONbits.TXREQ = 1;
+  //Send the can packet out on the serial port too
+  CAN2Serial(Tx1);
 }
 
 

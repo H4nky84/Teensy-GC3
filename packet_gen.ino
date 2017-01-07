@@ -846,3 +846,34 @@ void purge_dispatch(unsigned char idx) {
     d_queue[idx].status.valid = 0;
     d_queue[idx].timeout = 0;
 }
+
+void purge_allSessions(){
+  //Purge all active sessions
+  for (i = 0; i < MAX_HANDLES; i++) {
+    if (q_queue[i].status.valid == 1) {
+      rx_ptr.buf[1] = i;
+      purge_session(i);
+      purge_dispatch(i);  //remove session from dispatch
+  
+      Tx1.buf[0] = OPC_ERR;
+      Tx1.buf[1] = i;
+      Tx1.buf[2] = 0;
+      Tx1.buf[3] = ERR_SESSION_CANCELLED;
+      can_tx(4); 
+    }
+  }
+  q_idx = 0;
+  q_state = 0;
+  
+  noOfSessions = 0;
+  
+  if (analogOperationActive) {
+    pinMode(DCC_NEG, OUTPUT);
+    pinMode(DCC_POS, OUTPUT);
+    analogOperationActive = 0;
+    railcomEnabled = mode_word.railcom;
+    //analogIcon();
+    railComIcon();
+  }
+}
+

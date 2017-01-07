@@ -173,6 +173,8 @@ FASTRUN void isr_high(void) {
       railcomDelay.priority(16);  //Set interrupt priority for bit timing to 16 (second highest)
     }
 
+    /*
+
     // Power LEDs
     if (SWAP_OP == 1) {
         // J7 is out
@@ -184,9 +186,11 @@ FASTRUN void isr_high(void) {
         // On board booster is main track output
         // LED2 normall on, off during overload
         digitalWriteFast(LED1, op_flags.op_pwr_m);
-   }
+    }
     
     digitalWriteFast(LED2, 1);
+
+    */
 
     // AWD drive signal
     if (retry_delay > 0) {
@@ -494,7 +498,7 @@ FASTRUN void isr_high(void) {
     //sum = sum + an0;            // S(t) = S(t-1) - A(t-1) + Vin
     //ave = sum>>2;               // A(t) = S(t)/4
 
-    an0 = analogRead(A3);
+    an0 = analogRead(A1);
 
     //implement a ring buffer instead
     ch1Current_readings[ch1Current_idx] = an0;
@@ -526,8 +530,7 @@ FASTRUN void isr_high(void) {
                 // current is limited by LM317
                 if (I_LIMIT > an0) {
                     // not dead short, look for overload
-                    if ((dcc_flags.dcc_check_ovld == 1)
-                        || (SWAP_OP == 0)) {         // low power booster mode
+                    if ((dcc_flags.dcc_check_ovld == 1) || (SWAP_OP == 0)) {         // low power booster mode
                         if (ave >= imax) {
                             ovld_delay = 130;         // 130*232us = 30160us delay
                         }
