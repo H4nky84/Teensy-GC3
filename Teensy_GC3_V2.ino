@@ -36,10 +36,10 @@ XPT2046_Touchscreen ts(TS_CS_PIN, TS_IRQ);  //Use pin 7 and 8 for the touchscree
 // touchscreen y values go from  3700 (top) to 400 (bottom)
 
 #ifdef __MK66FX1M0__
-  FlexCAN CANbus(125000, 2);  //Primary MERG canbus on CAN0 with alternate pin mapping
-  FlexCAN CANbus2(250000, 1); //Secondary CANbus at 250k on CAN1
+  FlexCAN CANbus(125000, 0, 1, 1);  //Primary MERG canbus on CAN0 with alternate pin mapping
+  FlexCAN CANbus2(250000, 1, 0, 0); //Secondary CANbus at 250k on CAN1
 #else
-  FlexCAN CANbus(125000, 0);  //If using Teensy 3.2, then just use the normal CAN0 on pins 3 and 4
+  FlexCAN CANbus(125000, 0, 0, 0);  //If using Teensy 3.2, then just use the normal CAN0 on pins 3 and 4
 #endif
 
 
