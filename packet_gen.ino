@@ -487,6 +487,7 @@ void query_session(void) {
 // Purge loco session from the queue
 //
 void purge_session(void) {
+    if (q_queue[rx_ptr.buf[1]].status.valid == 1) noOfSessions --;
     rx_ptr.buf[1] &= 0x3f;
     q_queue[rx_ptr.buf[1]].status.valid = 0;
     q_queue[rx_ptr.buf[1]].address.addr_int = 0;
@@ -503,7 +504,6 @@ void purge_session(void) {
       //analogIcon();
       railComIcon();
     }
-    noOfSessions --;
 }
 
 //
@@ -512,6 +512,7 @@ void purge_session(void) {
 // Purge loco session from the queue
 //
 void purge_session(unsigned char idx) {
+    if (q_queue[idx].status.valid == 1) noOfSessions --;
     idx &= 0x3f;
     q_queue[idx].status.valid = 0;
     q_queue[idx].address.addr_int = 0;
@@ -528,7 +529,7 @@ void purge_session(unsigned char idx) {
       //analogIcon();
       railComIcon();
     }
-    noOfSessions --;
+    //noOfSessions --;
 }
 
 //

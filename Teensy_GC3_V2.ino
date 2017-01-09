@@ -260,6 +260,7 @@ void setup() {
   //Pin setups
   pinMode(LEDCANACT, OUTPUT);
   pinMode(DCC_EN, OUTPUT);
+  pinMode(DCC_OUT_EN, OUTPUT);
   pinMode(DCC_OUT_POS, OUTPUT);
   pinMode(DCC_OUT_NEG, OUTPUT);
   pinMode(DCC_POS, OUTPUT);
@@ -296,6 +297,7 @@ void setup() {
   stat_flags.byte = 0;
 
   digitalWriteFast(DCC_EN, 1);
+  digitalWriteFast(DCC_OUT_EN, 1);
 
   cbus_setup();
 
