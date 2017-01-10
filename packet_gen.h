@@ -121,6 +121,7 @@ void queue_update(void);
 void query_session(void);
 void purge_session(void);
 void purge_session(unsigned char idx);
+void purge_allSessions(void);
 void keep_alive(void);
 void dcc_packet(void);
 void em_stop(void);

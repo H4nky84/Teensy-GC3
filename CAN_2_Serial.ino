@@ -1,24 +1,4 @@
 
-/*
-void loop() {
-  // put your main code here, to run repeatedly:
-  GetCANdata();
-  CheckSerial();
-  
-}
-
-//Read available CAN data
-void GetCANdata(){
-  //digitalWrite(BOARDLED, CANbus.available());
-  if(CANbus.available()) {
-    CANbus.read(rxmsg);
-    CAN2Serial(rxmsg);
-    digitalWrite(LED, (!digitalRead(LED)));
-  }
-  
-}
-*/
-
 //This function takes a CAN packet and creates a serial string from it in the modified gridConnect format
 void CAN2Serial(CAN_message_t canmsg){
   tempcanid1 = 0;
@@ -148,7 +128,7 @@ void Serial2CAN(String inString){
   }
 
   //write message
-  CANbus.write(USBtxmsg);
+  Can0.write(USBtxmsg);
 }
 
 //This function returns a byte value from a 2 character string
@@ -316,7 +296,7 @@ int CheckSerial(){
       //digitalWrite(LED, (!digitalRead(LED)));
       return 1;
     } else return 0;
-  }
+  } else return 0;
   
 }
 

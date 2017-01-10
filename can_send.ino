@@ -77,7 +77,7 @@ void sendTX1(void) {
  //Attempt to send the packet out at low priority up to 5 times if it wont send
 
   for (i = 5; i >= 0; i--) {
-    if(CANbus.write(Tx1)) {
+    if(Can0.write(Tx1)) {
       send_complete = 1;
       break;
     }
@@ -89,7 +89,7 @@ void sendTX1(void) {
     Tx1.id &= 0b00001111111;    // clear old priority
     Tx1.id |= 0b01110000000;    // high priority
     for (i = 3; i >= 0; i--) {
-      if(CANbus.write(Tx1)) {
+      if(Can0.write(Tx1)) {
         send_complete = 1;
         break;
       }
@@ -99,7 +99,7 @@ void sendTX1(void) {
   if(send_complete == 0) op_flags.can_transmit_failed = 0;
 
 	//while((TXB1CONbits.TXREQ) && (!op_flags.can_transmit_failed) && (can_transmit_timeout != 0));
-  //CANbus.write(Tx1);
+  //Can0.write(Tx1);
 
   LEDCanActTimer = 2000;
   digitalWriteFast(LEDCANACT, 1);

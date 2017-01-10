@@ -19,7 +19,17 @@ unsigned short nodeID = 0;
  * Common CBUS CAN setup
  */
 void cbus_setup(void) {
-    CANbus.begin();
+  // Default mask is allow everything
+  //defaultMask.rtr = 0;
+  //defaultMask.ext = 0;
+  //defaultMask.id = 0;
+  //Can0.begin(125000, 1, 1);
+
+  Can0.begin(125000, {0,0,0}, 1, 1);  //Setup the CAN port on the alternate pins of the unit with a default mask
+  //Can0.begin(125000, defMask, 1, 1);  //Setup the CAN port on the alternate pins of the unit
+  #ifdef __MK66FX1M0__
+    Can1.begin(250000); //If using the Teensy 3.6, also enable the second CAN port
+  #endif
   
 }
 
@@ -54,8 +64,8 @@ void ee_write_short(unsigned char addr, uint16_t data) {
 // 
 unsigned char ecan_fifo_empty(void) {
     
-    if (CANbus.available()) {
-      CANbus.read(rx_ptr);
+    if (Can0.available()) {
+      Can0.read(rx_ptr);
       CAN2Serial(rx_ptr);
         // current buffer is not empty
         return 0;

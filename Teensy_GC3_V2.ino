@@ -6,16 +6,13 @@
 #include <font_AwesomeF000.h>
 #include <font_AwesomeF080.h>
 
-#include <FlexCAN.h>
+#include <FlexCAN.h>  //this is the FlexCAN library from https://github.com/collin80/FlexCAN_Library
 #include <EEPROM.h>
-
 #include <SPI.h>
 #include <ILI9341_t3.h>
 #include <XPT2046_Touchscreen.h>
 #include <SD.h>
 
-//#include "merg_logo.c"
-//#include "pjrc_logo.c"
 
 // For optimized ILI9341_t3 library
 #define TFT_DC      9
@@ -28,20 +25,11 @@
 #define TS_IRQ  7 //Touchscreen Interrupt request
 
 // Use hardware SPI
-//ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC, TFT_RST, TFT_MOSI, TFT_SCLK, TFT_MISO);
 ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC);  //Use standard SPI hardware with SCK on pin 13
 XPT2046_Touchscreen ts(TS_CS_PIN, TS_IRQ);  //Use pin 7 and 8 for the touchscreen interface along with the normal SPI
 
 //touchscreen x values go from 3700 (left hand side) to 350 (right hand side)
 // touchscreen y values go from  3700 (top) to 400 (bottom)
-
-#ifdef __MK66FX1M0__
-  FlexCAN CANbus(125000, 0, 1, 1);  //Primary MERG canbus on CAN0 with alternate pin mapping
-  FlexCAN CANbus2(250000, 1, 0, 0); //Secondary CANbus at 250k on CAN1
-#else
-  FlexCAN CANbus(125000, 0, 0, 0);  //If using Teensy 3.2, then just use the normal CAN0 on pins 3 and 4
-#endif
-
 
 IntervalTimer dccBit;
 IntervalTimer railcomDelay;
@@ -58,15 +46,15 @@ CAN_message_t Tx1, rx_ptr, TXB0, USBtxmsg, USBrxmsg;;
 //
 // Current sensing for Teensy
 // 5V reference => 3.3/4096 = 0.81mV resolution
-// Sense resistor is 0R50
-// so 60mA is 30mV Vsense => 37 steps
-// 250mA overload is 125mV Vsense => 155 steps
+// Sense resistor is 0R10 with a 5.3x gain via an opamp
+// so 60mA is 30mV Vsense => 40 steps
+// 250mA overload is 125mV Vsense => 165 steps
 
 //
 #define I_ACK_DIFF 40  // No. steps for additional 60ma ACK pulse
 #define I_OVERLOAD 165  //This is the value for 250mA for the service mode
-#define I_DEFAULT 2600
-#define I_LIMIT 4000    //This is for 4 amps (capability of L6203
+#define I_DEFAULT 2600  //This is for 4 amps (capability of L6203
+#define I_LIMIT 4000    //This is for a total short circuit condition
 
 // EEPROM addresses
 #define EE_MAGIC 0
@@ -198,6 +186,7 @@ uint16_t ch2Current_readings[CIRCBUFFERSIZE];
 unsigned char ch1Current_idx = 0;     //indexes for ring buffers
 unsigned char ch2Current_idx = 0;
 boolean sdCardPresent = 0;
+CAN_filter_t defMask = {0, 0, 0};
 
 String inputString, outputString;
 unsigned int tempcanid1, tempcanid2;
@@ -339,8 +328,8 @@ void setup() {
 
   // clear the fifo receive buffers
   //while (ecan_fifo_empty() == 0) {
-  while (CANbus.available()) {
-      CANbus.read(rx_ptr);
+  while (Can0.available()) {
+      Can0.read(rx_ptr);
   }
 
   cmd_rmode();          // read mode & current limit
@@ -902,8 +891,8 @@ void loop() {
 
       // Check for Rx packet and setup pointer to it
       //if (ecan_fifo_empty() == 0) {
-      if (CANbus.available()) {
-          CANbus.read(rx_ptr);
+      if (Can0.available()) {
+          Can0.read(rx_ptr);
           CAN2Serial(rx_ptr);
           // Decode the new command
           LEDCanActTimer = 2000;
@@ -926,7 +915,7 @@ void loop() {
         rx_ptr.buf[6] = USBtxmsg.buf[6];
         rx_ptr.buf[7] = USBtxmsg.buf[7];
         parse_cmd();
-        //CANbus.write(USBtxmsg);
+        //Can0.write(USBtxmsg);
       }
 
 

@@ -504,6 +504,7 @@ void purge_session(void) {
       //analogIcon();
       railComIcon();
     }
+    noOfSessions = constrain(noOfSessions, 0, 0x3F);
 }
 
 //
@@ -529,6 +530,7 @@ void purge_session(unsigned char idx) {
       //analogIcon();
       railComIcon();
     }
+    noOfSessions = constrain(noOfSessions, 0, 0x3F);
     //noOfSessions --;
 }
 
