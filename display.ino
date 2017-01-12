@@ -1,5 +1,4 @@
 #include <ILI9341_t3.h>
-//#include <Adafruit_STMPE610.h>
 
 // This is calibration data for the raw touch data to the screen coordinates
 #define TS_MINX 3700

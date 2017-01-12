@@ -498,14 +498,17 @@ FASTRUN void isr_high(void) {
     //sum = sum + an0;            // S(t) = S(t-1) - A(t-1) + Vin
     //ave = sum>>2;               // A(t) = S(t)/4
 
-    an0 = analogRead(A1);
-
-    //implement a ring buffer instead
-    ch1Current_readings[ch1Current_idx] = an0;
-    
-    ch1Current_idx = (ch1Current_idx + 1)%CIRCBUFFERSIZE; //keep index within buffer size and wrap around
-    //if (ch1Current_idx < CIRCBUFFERSIZE ) ch1Current_idx ++;
-    //else ch1Current_idx = 0;
+    //Only read the current sensor if there is no railcom active at that moment, otherwise it will just be zero's
+    if (!railCom_active) {
+      an0 = analogRead(A1);
+  
+      //implement a ring buffer for storing current readings
+      ch1Current_readings[ch1Current_idx] = an0;
+      
+      ch1Current_idx = (ch1Current_idx + 1)%CIRCBUFFERSIZE; //keep index within buffer size and wrap around
+      //if (ch1Current_idx < CIRCBUFFERSIZE ) ch1Current_idx ++;
+      //else ch1Current_idx = 0;
+    }
     
     sum = 0;
     //use all of the circular buffer to implement an averaging function

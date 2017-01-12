@@ -456,7 +456,7 @@ void loop() {
 
         case Main:
 
-          if ((buttonPressed(TRACK_STAT, p)) && TRACK_STAT.active) {
+          if (buttonPressed(TRACK_STAT, p)) {
             if(stat_flags.track_on_off == 0 ) {
               power_control(OPC_RTON);
               //PowerON = 1;
@@ -469,7 +469,7 @@ void loop() {
             }
           }
 
-          if ((buttonPressed(SWAP_BOX, p)) && SWAP_BOX.active) {
+          if (buttonPressed(SWAP_BOX, p)) {
             if(SWAP_OP == 0 ) {
               SWAP_OP = 1;
               swapButton();
@@ -485,7 +485,7 @@ void loop() {
             purge_allSessions();
           }
   
-          if ((buttonPressed(SETTINGS_BOX, p)) && SETTINGS_BOX.active) {
+          if (buttonPressed(SETTINGS_BOX, p)) {
             settingsPage();
             currentScreen = Settings;
           }
@@ -862,177 +862,181 @@ void loop() {
     */
 
 
-      if (dcc_flags.dcc_overload) {
-          // Programming overload
-          dcc_flags.dcc_overload = 0;
+  if (dcc_flags.dcc_overload) {
+    // Programming overload
+    dcc_flags.dcc_overload = 0;
     digitalWriteFast(OVERLOAD_PIN, 0);
-      } else {
-          if (SWAP_OP == 0) {
-              // Low power booster mode
-        if (dcc_flags.dcc_retry) {
-                  // Turn power back on after retry
-          dcc_flags.dcc_retry = 0;
-                  op_flags.op_pwr_m = 1;
+  } else {
+    if (SWAP_OP == 0) {
+      // Low power booster mode
+      if (dcc_flags.dcc_retry) {
+        // Turn power back on after retry
+        dcc_flags.dcc_retry = 0;
+        op_flags.op_pwr_m = 1;
         digitalWriteFast(OVERLOAD_PIN, 0);
-        }
-          }
+      }
+    }
   }
 
-      if (((dcc_flags.dcc_reading) || (dcc_flags.dcc_writing))
-          && (dcc_flags.dcc_rdy_s == 1)) {
-          // iterate service mode state machine
-          cv_sm();
-      }
+  if (((dcc_flags.dcc_reading) || (dcc_flags.dcc_writing)) && (dcc_flags.dcc_rdy_s == 1)) {
+      // iterate service mode state machine
+      cv_sm();
+  }
 
-      if (dcc_flags.dcc_rdy_m) {
-          // Main track output is ready for next packet
-          packet_gen();
-      }
+  if (dcc_flags.dcc_rdy_m) {
+      // Main track output is ready for next packet
+      packet_gen();
+  }
 
-      // Check for Rx packet and setup pointer to it
-      //if (ecan_fifo_empty() == 0) {
-      if (Can0.available()) {
-          Can0.read(rx_ptr);
-          CAN2Serial(rx_ptr);
-          // Decode the new command
-          LEDCanActTimer = 2000;
-          digitalWriteFast(LEDCANACT, 1);
-          parse_cmd();
-      }
+  // Check for Rx packet and setup pointer to it
+  //if (ecan_fifo_empty() == 0) {
+  if (Can0.available()) {
+      Can0.read(rx_ptr);
+      CAN2Serial(rx_ptr);
+      // Decode the new command
+      LEDCanActTimer = 2000;
+      digitalWriteFast(LEDCANACT, 1);
+      parse_cmd();
+  }
 
-      //Chekc if there is serial data available off the USB port, if it is and it is a valid gridconnect packet, parse it like any other command and send a copy of it out on the network
-      if (CheckSerial()) {
-        rx_ptr.id = USBtxmsg.id;
-        rx_ptr.len = USBtxmsg.len;
-        rx_ptr.ext = USBtxmsg.ext;
-        rx_ptr.rtr = USBtxmsg.rtr;
-        rx_ptr.buf[0] = USBtxmsg.buf[0];
-        rx_ptr.buf[1] = USBtxmsg.buf[1];
-        rx_ptr.buf[2] = USBtxmsg.buf[2];
-        rx_ptr.buf[3] = USBtxmsg.buf[3];
-        rx_ptr.buf[4] = USBtxmsg.buf[4];
-        rx_ptr.buf[5] = USBtxmsg.buf[5];
-        rx_ptr.buf[6] = USBtxmsg.buf[6];
-        rx_ptr.buf[7] = USBtxmsg.buf[7];
-        parse_cmd();
-        //Can0.write(USBtxmsg);
-      }
+  //Chekc if there is serial data available off the USB port, if it is and it is a valid gridconnect packet, parse it like any other command and send a copy of it out on the network
+  if (CheckSerial()) {
+    rx_ptr.id = USBtxmsg.id;
+    rx_ptr.len = USBtxmsg.len;
+    rx_ptr.ext = USBtxmsg.ext;
+    rx_ptr.rtr = USBtxmsg.rtr;
+    rx_ptr.buf[0] = USBtxmsg.buf[0];
+    rx_ptr.buf[1] = USBtxmsg.buf[1];
+    rx_ptr.buf[2] = USBtxmsg.buf[2];
+    rx_ptr.buf[3] = USBtxmsg.buf[3];
+    rx_ptr.buf[4] = USBtxmsg.buf[4];
+    rx_ptr.buf[5] = USBtxmsg.buf[5];
+    rx_ptr.buf[6] = USBtxmsg.buf[6];
+    rx_ptr.buf[7] = USBtxmsg.buf[7];
+    parse_cmd();
+    //Can0.write(USBtxmsg);
+  }
 
 
-      // Handle slot & service mode timeout and beeps every half second
-      if (op_flags.slot_timer) {
-        //shouldnt need to deactivate interrupts as this will only run when it detects the slot timer bit which is triggered by the interrupt routine anyway
-        //noInterrupts();
-        ch1Current = (ave*0.0008);
-        //interrupts();
+  // Handle slot & service mode timeout and beeps every half second
+  if (op_flags.slot_timer) {
 
-        
-        if(mode_word.inactive_timeout || mode_word.active_timeout || mode_word.dispatch_active) {
-          for (i = 0; i < MAX_HANDLES; i++) {
-            //decrement the inactive timeout if required
-            if (((q_queue[i].speed & 0x7F) == 0) && (q_queue[i].timeout > 0) && (mode_word.inactive_timeout) && (inactiveTimeout > 0)) {
-              q_queue[i].timeout = constrain(q_queue[i].timeout, 0, inactiveTimeout); //If using the inactive timeout then if the loco is stopped start the timer
-              --q_queue[i].timeout;
-              if ((q_queue[i].status.valid) && ((q_queue[i].timeout) < 40)) {
-                q_queue[i].status.valid = 0;
-                //rx_ptr.buf[1] = i;
-                //purge_session();
-              }
-              if (q_queue[i].timeout == 0) {
-                //q_queue[i].status.valid = 0;
-                //rx_ptr.buf[1] = i;
-                purge_session(i);
-              }
-            }
-            
-            //decrement the active timeout if required
-            if (((q_queue[i].speed & 0x7F) != 0) && (q_queue[i].timeout > 0) && (mode_word.active_timeout) && (activeTimeout > 0)) {
-              --q_queue[i].timeout;
-              //If this is in the dispatch queue just put its timeout back to the active one
-              if (d_queue[i].status.valid) {
-                q_queue[i].timeout = activeTimeout;
-              }            
-              if (q_queue[i].timeout == 0) {
-                //set loco speed to 0 then purge session
-                rx_ptr.buf[0] = OPC_DSPD;
-                rx_ptr.buf[1] = i;
-                if (mode_word.active_timeout_mode) rx_ptr.buf[2] = 1; //If the active timeout mode bit is set to 1, do an estop
-                else rx_ptr.buf[2] = 0;  //if not, do a controlled stop, not an estop
-                queue_update();
-                purge_session(i);
-              }
-            }
-            
-            //check the dispatch queue for timeouts
-            if ((d_queue[i].status.valid) && (d_queue[i].timeout > 0) && (mode_word.dispatch_active)) {
-              --d_queue[i].timeout;
-                             
-              if (d_queue[i].timeout == 0) {
-                //set loco speed to 0 then purge session
-                rx_ptr.buf[0] = OPC_DSPD;
-                rx_ptr.buf[1] = i;
-                rx_ptr.buf[2] = 0;  //if not, do a controlled stop, not an estop
-                queue_update();
-                rx_ptr.buf[1] = i;
-                purge_session(i);
-                purge_dispatch(i);  //remove session from dispatch
-              }
-            }
-          }
-        }
-        
+    //shouldnt need to deactivate interrupts as this will only run when it detects the slot timer bit which is triggered by the interrupt routine anyway
+    //noInterrupts();
+    ch1Current = ave;
+    ch1Current = ch1Current*0.00152;
+    //interrupts();
 
-        if (BeepCount > 0) {
-          op_flags.beeping = !op_flags.beeping;
-          digitalWriteFast(AWD, (op_flags.beeping || (retry_delay > 0)));
-          if (op_flags.beeping) {
-            BeepCount--;
-          }
-        }
-        else {
-          op_flags.beeping = 0;
-            if (retry_delay == 0) {
-            digitalWriteFast(AWD, 0);
-          }
-        }
-  
-  
-        /*
-        tft.fillRect(188, 60+50, 85, 40, ILI9341_WHITE);
-        tft.setTextColor(ILI9341_BLACK);
-        tft.setCursor(188 + 3, 60 + 50);
-        tft.print(q_queue[1].timeout);
-        */
-        
-        if((noOfSessions != last_noOfSessions) && (SESSIONS_BOX.active))
-        {
-          updateSessions();
-        }
-        if(digitalRead(OVERLOAD_PIN) && (!lastOverload)){
-          overloadDisplay();
-          lastOverload = 1;
-        }
-        if((!digitalRead(OVERLOAD_PIN)) && (lastOverload))
-        {
-          if (currentScreen == Main) {
-            mainPage();
-          }
-          else if (currentScreen == Settings) {
-            settingsPage();
-          }
-            
-          lastOverload = 0;
-        }
-        if((ch1Current != last_ch1Current) && (!lastOverload) && (CURRENT_BOX.active))
-        {
-          updateScreenCurrent();
-        }
-        
-        last_ch1Current = ch1Current;
     
-        op_flags.slot_timer = 0;
-      }  // slot timer flag set
-  
+    if(mode_word.inactive_timeout || mode_word.active_timeout || mode_word.dispatch_active) {
+      for (i = 0; i < MAX_HANDLES; i++) {
+        //decrement the inactive timeout if required
+        if (((q_queue[i].speed & 0x7F) == 0) && (q_queue[i].timeout > 0) && (mode_word.inactive_timeout) && (inactiveTimeout > 0)) {
+          q_queue[i].timeout = constrain(q_queue[i].timeout, 0, inactiveTimeout); //If using the inactive timeout then if the loco is stopped start the timer
+          --q_queue[i].timeout;
+          if ((q_queue[i].status.valid) && ((q_queue[i].timeout) < 40)) {
+            q_queue[i].status.valid = 0;
+            //rx_ptr.buf[1] = i;
+            //purge_session();
+          }
+          if (q_queue[i].timeout == 0) {
+            //q_queue[i].status.valid = 0;
+            //rx_ptr.buf[1] = i;
+            purge_session(i);
+          }
+        }
+        
+        //decrement the active timeout if required
+        if (((q_queue[i].speed & 0x7F) != 0) && (q_queue[i].timeout > 0) && (mode_word.active_timeout) && (activeTimeout > 0)) {
+          --q_queue[i].timeout;
+          //If this is in the dispatch queue just put its timeout back to the active one
+          if (d_queue[i].status.valid) {
+            q_queue[i].timeout = activeTimeout;
+          }            
+          if (q_queue[i].timeout == 0) {
+            //set loco speed to 0 then purge session
+            rx_ptr.buf[0] = OPC_DSPD;
+            rx_ptr.buf[1] = i;
+            if (mode_word.active_timeout_mode) rx_ptr.buf[2] = 1; //If the active timeout mode bit is set to 1, do an estop
+            else rx_ptr.buf[2] = 0;  //if not, do a controlled stop, not an estop
+            queue_update();
+            purge_session(i);
+          }
+        }
+        
+        //check the dispatch queue for timeouts
+        if ((d_queue[i].status.valid) && (d_queue[i].timeout > 0) && (mode_word.dispatch_active)) {
+          --d_queue[i].timeout;
+                         
+          if (d_queue[i].timeout == 0) {
+            //set loco speed to 0 then purge session
+            rx_ptr.buf[0] = OPC_DSPD;
+            rx_ptr.buf[1] = i;
+            rx_ptr.buf[2] = 0;  //if not, do a controlled stop, not an estop
+            queue_update();
+            rx_ptr.buf[1] = i;
+            purge_session(i);
+            purge_dispatch(i);  //remove session from dispatch
+          }
+        }
+      }
+    }
+    
+
+    if (BeepCount > 0) {
+      op_flags.beeping = !op_flags.beeping;
+      digitalWriteFast(AWD, (op_flags.beeping || (retry_delay > 0)));
+      if (op_flags.beeping) {
+        BeepCount--;
+      }
+    }
+    else {
+      op_flags.beeping = 0;
+        if (retry_delay == 0) {
+        digitalWriteFast(AWD, 0);
+      }
+    }
+
+
+    /*
+    tft.fillRect(188, 60+50, 85, 40, ILI9341_WHITE);
+    tft.setTextColor(ILI9341_BLACK);
+    tft.setCursor(188 + 3, 60 + 50);
+    tft.print(q_queue[1].timeout);
+    */
+    
+    if((noOfSessions != last_noOfSessions) && (SESSIONS_BOX.active))
+    {
+      updateSessions();
+    }
+    
+    if(digitalRead(OVERLOAD_PIN) && (!lastOverload)){
+      overloadDisplay();
+      lastOverload = 1;
+    }
+    
+    if((!digitalRead(OVERLOAD_PIN)) && (lastOverload))
+    {
+      if (currentScreen == Main) {
+        mainPage();
+      }
+      else if (currentScreen == Settings) {
+        settingsPage();
+      }
+        
+      lastOverload = 0;
+    }
+    
+    if((ch1Current != last_ch1Current) && (!lastOverload) && (CURRENT_BOX.active))
+    {
+      updateScreenCurrent();
+    }
+    
+    last_ch1Current = ch1Current;
+
+    op_flags.slot_timer = 0;
+  }  // slot timer flag set
+
   
 }
 
