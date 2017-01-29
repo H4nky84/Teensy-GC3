@@ -45,7 +45,7 @@ CAN_message_t Tx1, rx_ptr, TXB0, USBtxmsg, USBrxmsg;;
 
 //
 // Current sensing for Teensy
-// 5V reference => 3.3/4096 = 0.81mV resolution
+// 3.3V reference => 3.3/4096 = 0.806mV resolution
 // Sense resistor is 0R10 with a 5.3x gain via an opamp
 // so 60mA is 30mV Vsense => 40 steps
 // 250mA overload is 125mV Vsense => 165 steps
@@ -924,8 +924,9 @@ void loop() {
     //shouldnt need to deactivate interrupts as this will only run when it detects the slot timer bit which is triggered by the interrupt routine anyway
     //noInterrupts();
     ch1Current = ave;
-    ch1Current = ch1Current*0.00152;
+    //ch1Current = ch1Current*0.00152;
     //interrupts();
+    //Serial.println(ave);
 
     
     if(mode_word.inactive_timeout || mode_word.active_timeout || mode_word.dispatch_active) {
