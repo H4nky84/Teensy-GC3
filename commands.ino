@@ -45,6 +45,7 @@ void parse_cmd(void) {
         case OPC_WCVS:
         case OPC_WCVO:
         case OPC_WCVB:
+	case OPC_WCVOA:
             // CV programming
             cmd_cv();
             break;
