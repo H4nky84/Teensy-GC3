@@ -49,7 +49,7 @@ void initScreenCurrent(){
   tft.setTextColor(ILI9341_CYAN);
   tft.setFont(Arial_28);
   tft.print("Current = ");
-  tft.print(ch1Current);
+  tft.print(ch1Current,2);
   tft.print(" A");
   
   if(op_flags.op_pwr_m == 1)
@@ -84,8 +84,8 @@ void updateScreenCurrent(){
   tft.setTextColor(ILI9341_CYAN);
   tft.setFont(Arial_28);
   tft.setCursor(CURRENT_BOX.X + 3, CURRENT_BOX.Y + 5);
-  //tft.print(an0);
-  tft.print(ch1Current);
+  //tft.print(ave);
+  tft.print(ch1Current,2);
   tft.print(" A");
   railComIcon();
   //analogIcon();

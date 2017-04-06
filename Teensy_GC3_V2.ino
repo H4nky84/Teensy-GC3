@@ -12,6 +12,7 @@
 #include <ILI9341_t3.h>
 #include <XPT2046_Touchscreen.h>
 #include <SD.h>
+#include <ADC.h>
 
 
 // For optimized ILI9341_t3 library
@@ -27,6 +28,7 @@
 // Use hardware SPI
 ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC);  //Use standard SPI hardware with SCK on pin 13
 XPT2046_Touchscreen ts(TS_CS_PIN, TS_IRQ);  //Use pin 7 and 8 for the touchscreen interface along with the normal SPI
+ADC *adc = new ADC(); // adc object;
 
 //touchscreen x values go from 3700 (left hand side) to 350 (right hand side)
 // touchscreen y values go from  3700 (top) to 400 (bottom)
@@ -73,77 +75,77 @@ CAN_message_t Tx1, rx_ptr, TXB0, USBtxmsg, USBrxmsg;;
 //
 // Flags register used for DCC packet transmission
 //
-volatile union dccflags_t{
-    struct {
-        unsigned dcc_rdy_s:1;        // set if Tx ready for a new packet
-        unsigned dcc_long_pre:1;  // set forces long preamble
-        unsigned dcc_retry:1;
-        unsigned dcc_ack:1;
-        unsigned dcc_overload:1;  // set if overload detected
-        unsigned dcc_check_ack:1;
-        unsigned dcc_check_ovld:1;
-        unsigned :1;
-        unsigned dcc_rdy_m:1;
-        unsigned dcc_reading:1;
-        unsigned dcc_writing:1;
-        unsigned dcc_cv_no_ack:1;
-        unsigned dcc_rec_time:1;
-        unsigned :1;
-        unsigned dcc_em_stop:1;
-        unsigned :1;
-    } ;
-    unsigned int word;
+volatile union dccflags_t {
+  struct {
+    unsigned dcc_rdy_s: 1;       // set if Tx ready for a new packet
+    unsigned dcc_long_pre: 1; // set forces long preamble
+    unsigned dcc_retry: 1;
+    unsigned dcc_ack: 1;
+    unsigned dcc_overload: 1; // set if overload detected
+    unsigned dcc_check_ack: 1;
+    unsigned dcc_check_ovld: 1;
+    unsigned : 1;
+    unsigned dcc_rdy_m: 1;
+    unsigned dcc_reading: 1;
+    unsigned dcc_writing: 1;
+    unsigned dcc_cv_no_ack: 1;
+    unsigned dcc_rec_time: 1;
+    unsigned : 1;
+    unsigned dcc_em_stop: 1;
+    unsigned : 1;
+  } ;
+  unsigned int word;
 } dcc_flags;
 
 //
 // MODE_WORD flags
 //
-volatile union modeword_t{
-    struct {
-        unsigned analog_en:1; //Option to run analog (PWM) output with address 0
-        unsigned dispatch_active:1; //Option for special queue to handle dispatch of locos
-        unsigned s_full:1;
-        unsigned inactive_timeout:1;  //wether the inactive timeout feature is enabled
-        unsigned active_timeout:1;  //wether the inactive timeout feature is enabled
-        unsigned active_timeout_mode:1;  // Option for estop on active timeout or controlled stop
-        unsigned direct_byte:1;
-        unsigned railcom:1;
-    } ;
-    unsigned char byte;
+volatile union modeword_t {
+  struct {
+    unsigned analog_en: 1; //Option to run analog (PWM) output with address 0
+    unsigned dispatch_active: 1; //Option for special queue to handle dispatch of locos
+    unsigned s_full: 1;
+    unsigned inactive_timeout: 1; //wether the inactive timeout feature is enabled
+    unsigned active_timeout: 1; //wether the inactive timeout feature is enabled
+    unsigned active_timeout_mode: 1; // Option for estop on active timeout or controlled stop
+    unsigned direct_byte: 1;
+    unsigned railcom: 1;
+  } ;
+  unsigned char byte;
 } mode_word;
 
 //
 // OP_FLAGS for DCC output
 //
-volatile union opflags_t{
-    struct {
-        unsigned op_pwr_s:1;
-        unsigned op_bit_s:1;
-        unsigned op_pwr_m:1;
-        unsigned op_bit_m:1;
-        unsigned bus_off:1;
-        unsigned slot_timer:1;
-        unsigned can_transmit_failed:1;
-        unsigned beeping:1;
-    } ;
-    unsigned char byte;
+volatile union opflags_t {
+  struct {
+    unsigned op_pwr_s: 1;
+    unsigned op_bit_s: 1;
+    unsigned op_pwr_m: 1;
+    unsigned op_bit_m: 1;
+    unsigned bus_off: 1;
+    unsigned slot_timer: 1;
+    unsigned can_transmit_failed: 1;
+    unsigned beeping: 1;
+  } ;
+  unsigned char byte;
 } op_flags;
 
 //
 // FLAGS for STAT output
 //
-volatile union statflags_t{
-    struct {
-        unsigned hw_err:1;
-        unsigned track_err:1;
-        unsigned track_on_off:1;
-        unsigned op_bit_m:1;
-        unsigned bus_on:1;
-        unsigned em_stop:1;
-        unsigned sm_on_off:1;
-        unsigned res:1;
-    } ;
-    unsigned char byte;
+volatile union statflags_t {
+  struct {
+    unsigned hw_err: 1;
+    unsigned track_err: 1;
+    unsigned track_on_off: 1;
+    unsigned op_bit_m: 1;
+    unsigned bus_on: 1;
+    unsigned em_stop: 1;
+    unsigned sm_on_off: 1;
+    unsigned res: 1;
+  } ;
+  unsigned char byte;
 } stat_flags;
 
 //
@@ -181,10 +183,10 @@ uint16_t dispatchTimeout;
 boolean analogOperationActive = 0;
 boolean railcomEnabled = 0;
 boolean SWAP_OP;  //status of the swap output function, basically turns the 1st booster into service mode
-uint16_t ch1Current_readings[CIRCBUFFERSIZE];    //array for ring buffer of current readings
-uint16_t ch2Current_readings[CIRCBUFFERSIZE];
-unsigned char ch1Current_idx = 0;     //indexes for ring buffers
-unsigned char ch2Current_idx = 0;
+volatile unsigned int ch1Current_readings[CIRCBUFFERSIZE];    //array for ring buffer of current readings
+volatile unsigned int ch2Current_readings[CIRCBUFFERSIZE];
+volatile unsigned char ch1Current_idx = 0;     //indexes for ring buffers
+volatile unsigned char ch2Current_idx = 0;
 boolean sdCardPresent = 0;
 CAN_filter_t defMask = {0, 0, 0};
 
@@ -236,8 +238,8 @@ unsigned char i;
 void setup() {
   Serial.begin(250000); //USB serial for use with JMRI
   RAILCOM_SERIAL.begin(250000); //Serial interface for RailCom
-  analogReadResolution(12); //Set the analog inputs to 12 bit (4095) resolution
-  analogWriteFrequency(20, 16000); // Set the PWM frequency to 20kHz when in analog mode.
+  //analogReference(EXTERNAL); //Set the adc reference to 3.3v
+
 
 
   //Set up TFT
@@ -258,20 +260,32 @@ void setup() {
   pinMode(OVERLOAD_PIN, OUTPUT);
   pinMode(BOOSTER_OUT, OUTPUT);
   pinMode(START_PREAMBLE, OUTPUT);
-  
+  pinMode(A1, INPUT); //pin 23 single ended
+
+
+
+
   //Disable interrupts during setup
   noInterrupts();
+
+  //analogReadAveraging(4);
+  adc->setAveraging(4); // set number of averages
+  adc->setResolution(12); // set bits of
+  //adc->setReference(ADC_REF_3V3, ADC_0);
+  analogWriteFrequency(20, 16000); // Set the PWM frequency to 20kHz when in analog mode.
+  analogReadRes(12); //Set the analog inputs to 12 bit (4095) resolution
+  delay(500);
 
   //Initialising
   PowerButtonDelay = 0;
   PowerTrigger = 0;
   PowerON = 0;
   TouchTapTimer = 0;
-  
+
   //Ensure the strings for use with the CAN to Serial are big enough
   inputString.reserve(36);
   outputString.reserve(36);
-  
+
   //
   // setup initial values before enabling ports
   //
@@ -299,13 +313,13 @@ void setup() {
 
   // Clear the refresh queue
   for (i = 0; i < MAX_HANDLES; i++) {
-      q_queue[i].status.byte = 0;
-      q_queue[i].address.addr_int = 0;
-      q_queue[i].speed = 0x80;
-      q_queue[i].fn1 = 0;
-      q_queue[i].fn2 = 0;
-      q_queue[i].fn2a = 0;
-      q_queue[i].timeout = 0;
+    q_queue[i].status.byte = 0;
+    q_queue[i].address.addr_int = 0;
+    q_queue[i].speed = 0x80;
+    q_queue[i].fn1 = 0;
+    q_queue[i].fn2 = 0;
+    q_queue[i].fn2a = 0;
+    q_queue[i].timeout = 0;
   }
   q_idx = 0;
   q_state = 0;
@@ -314,14 +328,14 @@ void setup() {
   //maybe use memset for faster clearing
   //memset(s_queue, 0, sizeof(s_queue));
   for (i = 0; i < 16; i++) {
-      s_queue[i].status.byte = 0;
-      s_queue[i].d[0] = 0;
-      s_queue[i].d[1] = 0;
-      s_queue[i].d[2] = 0;
-      s_queue[i].d[3] = 0;
-      s_queue[i].d[4] = 0;
-      s_queue[i].d[5] = 0;
-      s_queue[i].repeat = 0;
+    s_queue[i].status.byte = 0;
+    s_queue[i].d[0] = 0;
+    s_queue[i].d[1] = 0;
+    s_queue[i].d[2] = 0;
+    s_queue[i].d[3] = 0;
+    s_queue[i].d[4] = 0;
+    s_queue[i].d[5] = 0;
+    s_queue[i].repeat = 0;
   }
   s_head = 0;
   s_tail = 0;
@@ -329,20 +343,20 @@ void setup() {
   // clear the fifo receive buffers
   //while (ecan_fifo_empty() == 0) {
   while (Can0.available()) {
-      Can0.read(rx_ptr);
+    Can0.read(rx_ptr);
   }
 
   cmd_rmode();          // read mode & current limit
   // check for magic value and set defaults if not found
   if (EEPROM.read(EE_MAGIC) != 93)  {
-      mode_word.byte = 0;
-      mode_word.inactive_timeout = 1;
-      mode_word.railcom = 1;
-      imax = I_DEFAULT;
-      inactiveTimeout = 240;  //Set the default inactive timeout for 120 seconds (2 minutes)
-      activeTimeout = 600;  //set the active timeout to be 240 seconds (4 minutes)
-      dispatchTimeout = 600;
-      cmd_wmode();            // Save default
+    mode_word.byte = 0;
+    mode_word.inactive_timeout = 1;
+    mode_word.railcom = 1;
+    imax = I_DEFAULT;
+    inactiveTimeout = 240;  //Set the default inactive timeout for 120 seconds (2 minutes)
+    activeTimeout = 600;  //set the active timeout to be 240 seconds (4 minutes)
+    dispatchTimeout = 600;
+    cmd_wmode();            // Save default
   }
 
   //set temporary staus bits after reading them from the EEPROM mode word
@@ -361,7 +375,7 @@ void setup() {
 
   //tft.setCursor(0, 120);
   //tft.println("Bit Timer Initialized");
-  
+
 
   // Programmer state machine
   prog_state = CV_IDLE;
@@ -389,13 +403,13 @@ void setup() {
 
   //built in sd card initialisation
   /*
-  while (!SD.begin(BUILTIN_SDCARD)) {
+    while (!SD.begin(BUILTIN_SDCARD)) {
     Serial.println(F("failed to access SD card!"));
     tft.println(F("failed to access SD card!"));
     delay(2000);
-  }
+    }
   */
-  #ifdef __MK66FX1M0__
+#ifdef __MK66FX1M0__
 
   if (SD.begin(BUILTIN_SDCARD)) {
     bmpDraw("splash.bmp", 0, 0);
@@ -405,27 +419,27 @@ void setup() {
     tft.println(F("failed to access SD card!"));
   }
   delay(2000);
-  #endif
+#endif
   delay(2000);
 
-  
+
 
   //Turn on CAN transceiver 0
   //digitalWrite(2, 0);
-  
+
   // enable interrupts
   interrupts();
 
   //unsigned char i;
   LEDCanActTimer = 0;
-  
-  
+
+
   // Initial power off on main track
   op_flags.op_pwr_m = 0;
 
   for (i = 0; i < 5; i++) {
-      Tx1.buf[0] = OPC_ARST;
-      can_tx(1);
+    Tx1.buf[0] = OPC_ARST;
+    can_tx(1);
   }
 
   if (railcomEnabled) {
@@ -452,12 +466,12 @@ void loop() {
       switch (currentScreen) {
         case Splash:
 
-        break;
+          break;
 
         case Main:
 
           if (buttonPressed(TRACK_STAT, p)) {
-            if(stat_flags.track_on_off == 0 ) {
+            if (stat_flags.track_on_off == 0 ) {
               power_control(OPC_RTON);
               //PowerON = 1;
               stat_flags.track_on_off = 1;
@@ -470,7 +484,7 @@ void loop() {
           }
 
           if (buttonPressed(SWAP_BOX, p)) {
-            if(SWAP_OP == 0 ) {
+            if (SWAP_OP == 0 ) {
               SWAP_OP = 1;
               swapButton();
             }
@@ -484,17 +498,17 @@ void loop() {
             //Purge all active sessions
             purge_allSessions();
           }
-  
+
           if (buttonPressed(SETTINGS_BOX, p)) {
             settingsPage();
             currentScreen = Settings;
           }
 
-        break;
+          break;
 
         case Overload:
 
-        break;
+          break;
 
         case Settings:
 
@@ -508,7 +522,7 @@ void loop() {
             currentScreen = InactiveTimeoutSplash;
           }
 
-          if (buttonPressed(ACTIVE_TIMEOUT, p)){
+          if (buttonPressed(ACTIVE_TIMEOUT, p)) {
             activePopup();
             currentScreen = ActiveTimeoutSplash;
           }
@@ -542,17 +556,17 @@ void loop() {
               railcom_control(OPC_RCOF);
               railcomEnabled = 0;
             }
-          }*/
+            }*/
 
-        break;
+          break;
 
         case ActiveTimeoutSplash:
 
           /*
-          if ((buttonPressed(RETURN_BOX, p)) && RETURN_BOX.active) {
+            if ((buttonPressed(RETURN_BOX, p)) && RETURN_BOX.active) {
             settingsPage();
             currentScreen = Settings;
-          }
+            }
           */
 
           if (!buttonPressed(SPLASH_BOX, p)) {
@@ -604,14 +618,14 @@ void loop() {
             tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
           }
 
-        break;
+          break;
 
         case InactiveTimeoutSplash:
 
           /*if ((buttonPressed(RETURN_BOX, p)) && RETURN_BOX.active) {
             settingsPage();
             currentScreen = Settings;
-          }*/
+            }*/
 
           if (!buttonPressed(SPLASH_BOX, p)) {
             settingsPage();
@@ -662,14 +676,14 @@ void loop() {
             tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
           }
 
-        break;
+          break;
 
         case DispatchSplash:
 
           /*if ((buttonPressed(RETURN_BOX, p)) && RETURN_BOX.active) {
             settingsPage();
             currentScreen = Settings;
-          }*/
+            }*/
 
           if (!buttonPressed(SPLASH_BOX, p)) {
             settingsPage();
@@ -720,14 +734,14 @@ void loop() {
             tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
           }
 
-        break;
+          break;
 
         case AnalogSplash:
 
           /*if ((buttonPressed(RETURN_BOX, p)) && RETURN_BOX.active) {
             settingsPage();
             currentScreen = Settings;
-          }*/
+            }*/
 
           if (!buttonPressed(SPLASH_BOX, p)) {
             settingsPage();
@@ -748,14 +762,14 @@ void loop() {
             tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
           }
 
-        break;
+          break;
 
         case CurrentSplash:
 
           /*if ((buttonPressed(RETURN_BOX, p)) && RETURN_BOX.active) {
             settingsPage();
             currentScreen = Settings;
-          }*/
+            }*/
 
           if (!buttonPressed(SPLASH_BOX, p)) {
             settingsPage();
@@ -806,14 +820,14 @@ void loop() {
             tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, ILI9341_BLACK);
           }
 
-        break;
+          break;
 
         case RailcomSplash:
 
           /*if ((buttonPressed(RETURN_BOX, p)) && RETURN_BOX.active) {
             settingsPage();
             currentScreen = Settings;
-          }*/
+            }*/
 
           if (!buttonPressed(SPLASH_BOX, p)) {
             settingsPage();
@@ -832,34 +846,34 @@ void loop() {
             tft.fillCircle(OPTION_4_RADIO.X + 20, OPTION_1_RADIO.Y + 20, 10, DOT_COLOUR);
           }
 
-        break;
+          break;
 
       }
-      
+
       TouchTapTimer = 5000;
     }
   }
   wastouched = istouched;
 
-    /*if( pwr && !PowerTrigger && (TouchTapTimer == 0) ) {
-      PowerTrigger = 1;
+  /*if( pwr && !PowerTrigger && (TouchTapTimer == 0) ) {
+    PowerTrigger = 1;
     }
     else if( !pwr && PowerTrigger && (TouchTapTimer == 0)) {
-      PowerTrigger = 0;
-      TouchTapTimer = 10000;
-      // Toggle Power.
-      if( PowerON == 0 ) {
-        power_control(OPC_RTON);
-        PowerON = 1;
-        //stat_flags.track_on_off = 0;
-      }
-      else {
-        power_control(OPC_RTOF);
-        PowerON = 0;
-        //stat_flags.track_on_off = 1;
-      }
+    PowerTrigger = 0;
+    TouchTapTimer = 10000;
+    // Toggle Power.
+    if( PowerON == 0 ) {
+      power_control(OPC_RTON);
+      PowerON = 1;
+      //stat_flags.track_on_off = 0;
     }
-    */
+    else {
+      power_control(OPC_RTOF);
+      PowerON = 0;
+      //stat_flags.track_on_off = 1;
+    }
+    }
+  */
 
 
   if (dcc_flags.dcc_overload) {
@@ -879,24 +893,24 @@ void loop() {
   }
 
   if (((dcc_flags.dcc_reading) || (dcc_flags.dcc_writing)) && (dcc_flags.dcc_rdy_s == 1)) {
-      // iterate service mode state machine
-      cv_sm();
+    // iterate service mode state machine
+    cv_sm();
   }
 
   if (dcc_flags.dcc_rdy_m) {
-      // Main track output is ready for next packet
-      packet_gen();
+    // Main track output is ready for next packet
+    packet_gen();
   }
 
   // Check for Rx packet and setup pointer to it
   //if (ecan_fifo_empty() == 0) {
   if (Can0.available()) {
-      Can0.read(rx_ptr);
-      CAN2Serial(rx_ptr);
-      // Decode the new command
-      LEDCanActTimer = 2000;
-      digitalWriteFast(LEDCANACT, 1);
-      parse_cmd();
+    Can0.read(rx_ptr);
+    CAN2Serial(rx_ptr);
+    // Decode the new command
+    LEDCanActTimer = 2000;
+    digitalWriteFast(LEDCANACT, 1);
+    parse_cmd();
   }
 
   //Chekc if there is serial data available off the USB port, if it is and it is a valid gridconnect packet, parse it like any other command and send a copy of it out on the network
@@ -923,13 +937,14 @@ void loop() {
 
     //shouldnt need to deactivate interrupts as this will only run when it detects the slot timer bit which is triggered by the interrupt routine anyway
     //noInterrupts();
-    ch1Current = ave;
-    //ch1Current = ch1Current*0.00152;
+    ch1Current = (float)ave;
+    ch1Current = ch1Current * 152;
+    ch1Current = ch1Current / 100000;
     //interrupts();
     //Serial.println(ave);
 
-    
-    if(mode_word.inactive_timeout || mode_word.active_timeout || mode_word.dispatch_active) {
+
+    if (mode_word.inactive_timeout || mode_word.active_timeout || mode_word.dispatch_active) {
       for (i = 0; i < MAX_HANDLES; i++) {
         //decrement the inactive timeout if required
         if (((q_queue[i].speed & 0x7F) == 0) && (q_queue[i].timeout > 0) && (mode_word.inactive_timeout) && (inactiveTimeout > 0)) {
@@ -946,14 +961,14 @@ void loop() {
             purge_session(i);
           }
         }
-        
+
         //decrement the active timeout if required
         if (((q_queue[i].speed & 0x7F) != 0) && (q_queue[i].timeout > 0) && (mode_word.active_timeout) && (activeTimeout > 0)) {
           --q_queue[i].timeout;
           //If this is in the dispatch queue just put its timeout back to the active one
           if (d_queue[i].status.valid) {
             q_queue[i].timeout = activeTimeout;
-          }            
+          }
           if (q_queue[i].timeout == 0) {
             //set loco speed to 0 then purge session
             rx_ptr.buf[0] = OPC_DSPD;
@@ -964,11 +979,11 @@ void loop() {
             purge_session(i);
           }
         }
-        
+
         //check the dispatch queue for timeouts
         if ((d_queue[i].status.valid) && (d_queue[i].timeout > 0) && (mode_word.dispatch_active)) {
           --d_queue[i].timeout;
-                         
+
           if (d_queue[i].timeout == 0) {
             //set loco speed to 0 then purge session
             rx_ptr.buf[0] = OPC_DSPD;
@@ -982,7 +997,7 @@ void loop() {
         }
       }
     }
-    
+
 
     if (BeepCount > 0) {
       op_flags.beeping = !op_flags.beeping;
@@ -993,30 +1008,30 @@ void loop() {
     }
     else {
       op_flags.beeping = 0;
-        if (retry_delay == 0) {
+      if (retry_delay == 0) {
         digitalWriteFast(AWD, 0);
       }
     }
 
 
     /*
-    tft.fillRect(188, 60+50, 85, 40, ILI9341_WHITE);
-    tft.setTextColor(ILI9341_BLACK);
-    tft.setCursor(188 + 3, 60 + 50);
-    tft.print(q_queue[1].timeout);
+      tft.fillRect(188, 60+50, 85, 40, ILI9341_WHITE);
+      tft.setTextColor(ILI9341_BLACK);
+      tft.setCursor(188 + 3, 60 + 50);
+      tft.print(q_queue[1].timeout);
     */
-    
-    if((noOfSessions != last_noOfSessions) && (SESSIONS_BOX.active))
+
+    if ((noOfSessions != last_noOfSessions) && (SESSIONS_BOX.active))
     {
       updateSessions();
     }
-    
-    if(digitalRead(OVERLOAD_PIN) && (!lastOverload)){
+
+    if (digitalRead(OVERLOAD_PIN) && (!lastOverload)) {
       overloadDisplay();
       lastOverload = 1;
     }
-    
-    if((!digitalRead(OVERLOAD_PIN)) && (lastOverload))
+
+    if ((!digitalRead(OVERLOAD_PIN)) && (lastOverload))
     {
       if (currentScreen == Main) {
         mainPage();
@@ -1024,40 +1039,40 @@ void loop() {
       else if (currentScreen == Settings) {
         settingsPage();
       }
-        
+
       lastOverload = 0;
     }
-    
-    if((ch1Current != last_ch1Current) && (!lastOverload) && (CURRENT_BOX.active))
+
+    if ((ch1Current != last_ch1Current) && (!lastOverload) && (CURRENT_BOX.active))
     {
       updateScreenCurrent();
     }
-    
+
     last_ch1Current = ch1Current;
 
     op_flags.slot_timer = 0;
   }  // slot timer flag set
 
-  
+
 }
 
-FASTRUN void railComInit(){
-   railcomDelay.end(); //stop the interval timer
-   //digitalWriteFast(START_PREAMBLE, 1);
-   //digitalWriteFast(LEDCANACT, 1);
-   railCom_active = 1;
-   digitalWriteFast(DCC_OUT_POS, 1);
-   digitalWriteFast(DCC_OUT_NEG, 1);
-   if (SWAP_OP == 0) {
+FASTRUN void railComInit() {
+  railcomDelay.end(); //stop the interval timer
+  //digitalWriteFast(START_PREAMBLE, 1);
+  //digitalWriteFast(LEDCANACT, 1);
+  railCom_active = 1;
+  digitalWriteFast(DCC_OUT_POS, 1);
+  digitalWriteFast(DCC_OUT_NEG, 1);
+  if (SWAP_OP == 0) {
     digitalWriteFast(DCC_POS, 1);
     digitalWriteFast(DCC_NEG, 1);
-   }
-   railcomCh1Delay.begin(railComCh1Start, 47); //begin railcom channel 1 delay timer with period of 47 us
-   railcomCh1Delay.priority(0);  //Set interrupt priority for bit timing to 0 (highest)
-   
+  }
+  railcomCh1Delay.begin(railComCh1Start, 47); //begin railcom channel 1 delay timer with period of 47 us
+  railcomCh1Delay.priority(0);  //Set interrupt priority for bit timing to 0 (highest)
+
 }
 
-FASTRUN void railComCh1Start(){
+FASTRUN void railComCh1Start() {
   //digitalWriteFast(START_PREAMBLE, 0);
   railcomCh1Delay.end();
   RAILCOM_SERIAL.clear();
@@ -1065,21 +1080,21 @@ FASTRUN void railComCh1Start(){
   railcomCh1Occ.priority(0);  //Set interrupt priority for bit timing to 16 (highest)
 }
 
-FASTRUN void railComCh1End(){
+FASTRUN void railComCh1End() {
   //digitalWriteFast(START_PREAMBLE, 1);
   railcomCh1Occ.end();
   railcomCh2Delay.begin(railComCh2Start, 7); //begin railcom channel 2 delay timer with period of 7 us
   railcomCh2Delay.priority(0);  //Set interrupt priority for bit timing to 0 (highest)
   int i = 0;
-  
-  while(RAILCOM_SERIAL.available()){
+
+  while (RAILCOM_SERIAL.available()) {
     RailCom_CH1_data[i] = RAILCOM_SERIAL.read();
     i++;
   }
-  
+
 }
 
-FASTRUN void railComCh2Start(){
+FASTRUN void railComCh2Start() {
   //digitalWriteFast(START_PREAMBLE, 0);
   railcomCh2Delay.end();
   RAILCOM_SERIAL.clear();
@@ -1087,24 +1102,24 @@ FASTRUN void railComCh2Start(){
   railcomCh2Occ.priority(0);  //Set interrupt priority for bit timing to 0 (highest)
 }
 
-FASTRUN void railComCh2End(){
+FASTRUN void railComCh2End() {
   //digitalWriteFast(START_PREAMBLE, 0);
   railcomCh2Occ.end();
   railCom_active = 0;
   int i = 0;
-  
-  while(RAILCOM_SERIAL.available()){
+
+  while (RAILCOM_SERIAL.available()) {
     RailCom_CH2_data[i] = RAILCOM_SERIAL.read();
     i++;
   }
   /*
-  if (op_flags.op_pwr_m) {
+    if (op_flags.op_pwr_m) {
         digitalWriteFast(DCC_OUT_POS, op_flags.op_bit_m);
         digitalWriteFast(DCC_OUT_NEG, !op_flags.op_bit_m);
         digitalWriteFast(BOOSTER_OUT, 1);
       }
       //digitalWriteFast(LEDCANACT, 0);
-      */
+  */
 }
 
 

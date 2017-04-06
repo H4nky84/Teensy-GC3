@@ -592,12 +592,16 @@ void dcc_packet(void) {
 // the loco from the consist
 //
 void consist_add(void) {
+  dcc_address ops_address;
+
     // CV address for Consist Address
     cv = 19 - 1;
     // Consist address
     cv_data = rx_ptr.buf[2];
-    ops_write();
+  ops_address = q_queue[rx_ptr.buf[1]].address;
+    ops_write(ops_address, cv, cv_data, 1 );
 }
+
 
 //
 // ops_write()
@@ -607,7 +611,7 @@ void consist_add(void) {
 //
 // The packet is repeated twice
 //
-void ops_write(void) {
+void ops_write(dcc_address ops_address, unsigned int cv_num, unsigned char cv_data, unsigned char write_mode ) {
     unsigned char i = 0;
 
     // get address of next s queue entry
@@ -616,27 +620,30 @@ void ops_write(void) {
     // Add to next S queue entry if possible
     if (s_ptr->status.valid == 0) {
         s_ptr->d[5] = 0;                                // clear error byte
-        if (q_queue[rx_ptr.buf[1]].address.addr_hi.long1 == 1) {
+        if (ops_address.addr_hi.long1 == 1) {
             // Put long address in
-            s_ptr->d[i] = q_queue[rx_ptr.buf[1]].address.addr_hi.byte;
+            s_ptr->d[i] = ops_address.addr_hi.byte;
             s_ptr->d[5] = s_ptr->d[i++];
-            s_ptr->d[i] = q_queue[rx_ptr.buf[1]].address.addr_lo;
+            s_ptr->d[i] = ops_address.addr_lo;
             s_ptr->d[5] = s_ptr->d[5] ^ s_ptr->d[i++];
        } else {
             // Put short address in
-            s_ptr->d[i] = q_queue[rx_ptr.buf[1]].address.addr_lo;
+            s_ptr->d[i] = ops_address.addr_lo;
             s_ptr->d[5] = s_ptr->d[i++];
         }
-        if ((rx_ptr.buf[0] == OPC_WCVO) || (rx_ptr.buf[0] == OPC_PCON)) {
+        //if ((rx_ptr.buf[0] == OPC_WCVO) || (rx_ptr.buf[0] == OPC_PCON)) {
+        write_mode &= 0x03;  // ops mode only supports direct byte or direct bit modes, so mask other bits in mode byte
+
+        if (write_mode == 1) {
             // Instruction byte for CV access long form for direct byte
-            s_ptr->d[i] = 0b11101100 | ((cv>>8) & 0x3);
+            s_ptr->d[i] = 0b11101100 | ((cv_num>>8) & 0x3);
         } else {
             // Instruction byte for CV access long form for direct bit
-            s_ptr->d[i] = 0b11101000 | ((cv>>8) & 0x3);
+            s_ptr->d[i] = 0b11101000 | ((cv_num>>8) & 0x3);
         }
         s_ptr->d[5] = s_ptr->d[5] ^ s_ptr->d[i++];
         // CV LSBs
-        s_ptr->d[i] = cv & 0xFF;
+        s_ptr->d[i] = cv_num & 0xFF;
         s_ptr->d[5] = s_ptr->d[5] ^ s_ptr->d[i++];
         // Data will be data byte (WCVO or PCON) or bit manipulation instruction (WCVB)
         s_ptr->d[i] = cv_data;

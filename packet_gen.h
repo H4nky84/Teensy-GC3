@@ -127,7 +127,7 @@ void dcc_packet(void);
 void em_stop(void);
 void consist_add(void);
 void consist_remove(void);
-void ops_write(void);
+void ops_write(dcc_address ops_address, unsigned int cv_num, unsigned char cv_data, unsigned char write_mode );
 
 #define __PACKET_GEN_H
 #endif
